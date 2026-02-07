@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{# --- PHẦN 1: MENU ADMIN --- #}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-warning">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold text-warning" href="{% url 'admin_dashboard' %}">
+            <i class="fas fa-user-shield"></i> ADMIN PORTAL
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="adminNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'admin_dashboard' %}">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link active text-warning fw-bold" href="{% url 'admin_import' %}">
+                        <i class="fas fa-truck-moving"></i> Nhập Hàng GIS
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'staff_pos' %}">
+                        <i class="fas fa-cash-register text-success"></i> Máy POS
+                    </a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3 border-end pe-3">Admin: <strong>{{ user.username }}</strong></span>
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Đăng xuất</a>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{# --- PHẦN 2: NỘI DUNG CHÍNH --- #}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<div class="container-fluid py-4">
+    <h2 class="text-primary mb-4 fw-bold"><i class="fas fa-truck-moving"></i> GIS - Tìm Nguồn Hàng & Nhập Kho</h2>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card shadow mb-4 h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-map-marked-alt"></i> Bản đồ mạng lưới cung ứng</span>
+                    <span class="badge bg-danger">Live Map</span>
+                </div>
+                <div class="card-body p-0 position-relative">
+                    <div id="map" style="height: 600px; width: 100%; z-index: 1;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card shadow h-100 border-0">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-clipboard-check"></i> Đề Xuất Nhập Hàng</h5>
+                </div>
+                <div class="card-body bg-light">
+                    <div class="alert alert-info shadow-sm">
+                        <strong><i class="fas fa-satellite-dish"></i> Thông tin vận chuyển:</strong><br>
+                        Nhà cung cấp đang chọn:<br>
+                        <strong class="text-danger fs-5" id="suggested_supplier">...</strong>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between">
+                            <span>Khoảng cách:</span>
+                            <span class="fw-bold" id="distance_info">... km</span>
+                        </div>
+                    </div>
+
+                    <form method="POST" class="bg-white p-3 rounded shadow-sm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted">Chọn Nhà Cung Cấp:</label>
+                            <select name="ncc_id" class="form-select border-primary fw-bold" id="ncc_select">
+                                {% for ncc in ds_ncc %}
+                                <option value="{{ ncc.id }}">{{ ncc.ten_ncc }}</option>
+                                {% empty %}
+                                <option disabled>Chưa có dữ liệu NCC</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted">Nhập vào Bồn:</label>
+                            <select name="bon_chua" class="form-select border-primary">
+                                {% for bon in ds_bon %}
+                                <option value="{{ bon.id }}">{{ bon.ten_bon }} ({{ bon.get_loai_nhien_lieu_display }}) - Còn: {{ bon.muc_hien_tai|floatformat:0 }}L</option>
+                                {% empty %}
+                                <option disabled>Chưa có dữ liệu bồn</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted">Số lượng nhập (Lít):</label>
+                            <div class="input-group">
+                                <input type="number" name="so_lit" class="form-control fw-bold text-primary" placeholder="VD: 5000" required min="1">
+                                <span class="input-group-text fw-bold">Lít</span>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 shadow">
+                            <i class="fas fa-file-import"></i> XÁC NHẬN NHẬP KHO
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{# --- PHẦN 3: SCRIPT GIS (FIX LỖI SO SÁNH ID) --- #}
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // 1. Dữ liệu đầu vào
+    var tramLat = parseFloat("{{ tram.latitude|default:'10.762622'|stringformat:'f' }}");
+    var tramLng = parseFloat("{{ tram.longitude|default:'106.660172'|stringformat:'f' }}");
+    var tramName = "{{ tram.ten_tram|default:'Trạm Trung Tâm' }}";
+
+    // MẢNG DỮ LIỆU NCC (Lưu ý: ID không để trong ngoặc kép để thành số)
+    var globalNCCList = [
+        {% for ncc in ds_ncc %}
+        {
+            id: {{ ncc.id }},  // Đây là Số (Number)
+            name: "{{ ncc.ten_ncc }}",
+            lat: parseFloat("{{ ncc.latitude|stringformat:'f' }}"),
+            lng: parseFloat("{{ ncc.longitude|stringformat:'f' }}"),
+            address: "{{ ncc.dia_chi }}"
+        },
+        {% endfor %}
+    ];
+
+    // 2. Khởi tạo Map
+    var map = L.map('map').setView([tramLat, tramLng], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+    // Icons
+    var stationIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/929/929426.png', iconSize: [45, 45], iconAnchor: [22, 45], popupAnchor: [0, -40] });
+    var warehouseIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2897/2897817.png', iconSize: [35, 35], iconAnchor: [17, 35], popupAnchor: [0, -30] });
+
+    // Marker Trạm Xăng
+    L.marker([tramLat, tramLng], {icon: stationIcon}).addTo(map)
+        .bindPopup("<div class='text-center fw-bold text-primary'>" + tramName + "<br><small>(Kho của bạn)</small></div>")
+        .openPopup();
+
+    // Group chứa đường kẻ
+    var routeLayer = L.layerGroup().addTo(map);
+
+    // 3. HÀM VẼ ĐƯỜNG ĐI (Đã sửa logic tìm kiếm)
+    function drawRouteToNCC(idCanTim) {
+        // Xóa sạch đường cũ
+        routeLayer.clearLayers();
+
+        // Ép kiểu ID cần tìm về Số nguyên (Integer) để so sánh chuẩn xác
+        var idSoSanh = parseInt(idCanTim);
+
+        // Tìm trong mảng
+        var selectedNCC = globalNCCList.find(n => n.id === idSoSanh);
+        
+        if (selectedNCC) {
+            // Cập nhật text
+            document.getElementById('suggested_supplier').innerText = selectedNCC.name;
+            var dist = map.distance([tramLat, tramLng], [selectedNCC.lat, selectedNCC.lng]) / 1000;
+            document.getElementById('distance_info').innerText = dist.toFixed(2) + " km";
+
+            // Vẽ đường
+            var latlngs = [
+                [tramLat, tramLng],
+                [selectedNCC.lat, selectedNCC.lng]
+            ];
+            
+            var polyline = L.polyline(latlngs, { 
+                color: 'red', 
+                weight: 4, 
+                dashArray: '10, 10', 
+                opacity: 0.8 
+            });
+            
+            routeLayer.addLayer(polyline);
+            map.fitBounds(polyline.getBounds(), {padding: [50, 50]});
+        } else {
+            console.log("Không tìm thấy NCC với ID:", idSoSanh);
+        }
+    }
+
+    // 4. BẮT SỰ KIỆN THAY ĐỔI
+    var selectBox = document.getElementById('ncc_select');
+    if (selectBox) {
+        selectBox.addEventListener('change', function() {
+            // Khi chọn, lấy giá trị và gọi hàm vẽ
+            drawRouteToNCC(this.value);
+        });
+    }
+
+    // 5. KHỞI TẠO BAN ĐẦU
+    if (globalNCCList.length > 0) {
+        var minDist = Infinity;
+        var nearestId = null;
+
+        // Vẽ các Marker NCC
+        globalNCCList.forEach(function(ncc) {
+            var marker = L.marker([ncc.lat, ncc.lng], {icon: warehouseIcon}).addTo(map);
+            marker.bindPopup("<b>" + ncc.name + "</b><br>" + ncc.address);
+
+            var d = map.distance([tramLat, tramLng], [ncc.lat, ncc.lng]);
+            if (d < minDist) {
+                minDist = d;
+                nearestId = ncc.id;
+            }
+        });
+
+        // Chọn mặc định cái gần nhất
+        if (nearestId) {
+            selectBox.value = nearestId;
+            drawRouteToNCC(nearestId);
+        }
+    }
+</script>
+{% endblock %}

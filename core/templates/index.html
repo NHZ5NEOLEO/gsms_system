@@ -1,0 +1,321 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+
+<style>
+    /* CSS cho bản đồ GIS */
+    #gis-map { height: 650px; width: 100%; border-radius: 10px; border: 2px solid #0d6efd; }
+    .gis-controls { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); height: 100%; }
+    .hero-section { background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://petrolimex.com.vn/public/userfiles/images/2021/T6/18062021_KV2_CH42_01.jpg'); background-size: cover; color: white; padding: 100px 0; text-align: center; }
+    
+    /* Nút định vị */
+    .leaflet-control-locate {
+        background-color: white; width: 40px; height: 40px; border-radius: 50%;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.3); cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 20px; color: #333; transition: 0.3s;
+    }
+    .leaflet-control-locate:hover { color: #0d6efd; background-color: #f8f9fa; }
+
+    /* Ẩn bảng hướng dẫn đường đi mặc định của Plugin cho gọn */
+    .leaflet-routing-container { display: none !important; }
+</style>
+
+<section class="hero-section mb-5">
+    <div class="container">
+        <h1 class="display-4 fw-bold">GSMS GROUP - VỮNG BƯỚC VƯƠN XA</h1>
+        <p class="lead">Hệ thống quản lý và phân phối xăng dầu hàng đầu Việt Nam</p>
+        <button onclick="timTramGanNhat()" class="btn btn-primary btn-lg mt-3 shadow"><i class="fas fa-map-marker-alt"></i> TÌM QUANH TÔI</button>
+    </div>
+</section>
+
+<section id="gis-section" class="container mb-5">
+    <div class="row">
+        <div class="col-12 mb-3"><h2 class="text-primary border-bottom pb-2"><i class="fas fa-globe-asia"></i> BẢN ĐỒ MẠNG LƯỚI TRẠM</h2></div>
+        
+        <div class="col-md-3">
+            <div class="gis-controls">
+                <h5 class="fw-bold mb-3"><i class="fas fa-filter"></i> Bộ Lọc Tìm Kiếm</h5>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Tìm địa điểm:</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" placeholder="Nhập địa chỉ..." id="locationInput">
+                        <button class="btn btn-primary" onclick="timKiemDiaDiem()"><i class="fas fa-search"></i></button>
+                    </div>
+                     <small class="text-muted">VD: Chợ Bến Thành, Quận 1...</small>
+                </div>
+                
+                <hr>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Bán kính quét: <span id="radiusVal" class="text-danger fw-bold">5</span> km</label>
+                    <input type="range" class="form-range" min="1" max="20" step="1" id="radiusRange" value="5" 
+                           oninput="capNhatBanKinh(this.value)">
+                </div>
+
+                <hr>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold mb-2">Loại nhiên liệu:</label>
+                    <div class="form-check">
+                        <input class="form-check-input fuel-filter" type="checkbox" value="A95" id="checkA95" checked onchange="capNhatBanDo()">
+                        <label class="form-check-label text-success fw-bold" for="checkA95">Xăng RON 95-III</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input fuel-filter" type="checkbox" value="E5" id="checkE5" checked onchange="capNhatBanDo()">
+                        <label class="form-check-label text-success fw-bold" for="checkE5">Xăng E5 RON 92</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input fuel-filter" type="checkbox" value="DO" id="checkDO" checked onchange="capNhatBanDo()">
+                        <label class="form-check-label text-warning fw-bold" for="checkDO">Dầu DO 0.05S</label>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning mt-3 small">
+                    <i class="fas fa-exclamation-triangle"></i> <strong>Lưu ý:</strong> Chức năng tìm đường trong bản đồ sử dụng dữ liệu mở (OSRM). Vui lòng tuân thủ biển báo thực tế và luật GTĐB Việt Nam.
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            <div id="gis-map" class="shadow position-relative"></div>
+        </div>
+    </div>
+</section>
+
+<section id="tin-tuc" class="bg-light py-5">
+    <div class="container">
+        <h2 class="text-center text-primary fw-bold mb-4">TIN TỨC HOẠT ĐỘNG</h2>
+        <div class="row">
+            {% for tin in tin_tuc %}
+            <div class="col-md-4 mb-3">
+                <div class="card h-100 shadow-sm border-0">
+                    <img src="{{ tin.anh_bia }}" class="card-img-top" style="height: 200px; object-fit: cover;">
+                    <div class="card-body">
+                        <h5 class="card-title fw-bold">{{ tin.tieu_de }}</h5>
+                        <p class="card-text small text-muted">{{ tin.tom_tat|truncatechars:100 }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<footer class="bg-dark text-white py-4 mt-5">
+    <div class="container text-center">
+        <p>© 2026 GSMS GROUP - Hệ thống Xăng dầu Thông minh</p>
+    </div>
+</footer>
+
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<script>
+    // 1. Dữ liệu & Khởi tạo
+    var allStations = {{ tram_json|safe }};
+    // Mặc định TP.HCM
+    var map = L.map('gis-map').setView([10.762622, 106.660172], 13);
+    
+    // Các lớp Layer
+    var markersLayer = L.layerGroup().addTo(map); // Chứa các trạm xăng
+    var routeLayer = null; // Chứa đường đi tìm được
+    var userMarker, radiusCircle;
+    var userLocation = null; // Lưu tọa độ người dùng
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    // --- ICON MỚI (CÂY XĂNG ĐỎ) ---
+    var gasIcon = L.icon({
+        iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448636.png', // Icon cây xăng đỏ đẹp hơn
+        iconSize: [45, 45], iconAnchor: [22, 45], popupAnchor: [0, -45]
+    });
+
+    // --- NÚT ĐỊNH VỊ (CUSTOM CONTROL) ---
+    var LocateControl = L.Control.extend({
+        options: { position: 'bottomright' },
+        onAdd: function(map) {
+            var container = L.DomUtil.create('div', 'leaflet-control-locate leaflet-bar');
+            container.innerHTML = '<i class="fas fa-crosshairs"></i>';
+            container.title = "Về vị trí của tôi";
+            container.onclick = function(e) {
+                e.stopPropagation();
+                timTramGanNhat();
+            };
+            return container;
+        }
+    });
+    map.addControl(new LocateControl());
+
+    // 2. HÀM CẬP NHẬT BẢN ĐỒ (Lọc Bán kính & Nhiên liệu)
+    function capNhatBanDo() {
+        markersLayer.clearLayers(); // Xóa hết trạm cũ
+        
+        // Lấy thông số lọc
+        var radiusKm = parseFloat(document.getElementById('radiusRange').value);
+        var selectedFuels = [];
+        document.querySelectorAll('.fuel-filter:checked').forEach(cb => selectedFuels.push(cb.value));
+
+        allStations.forEach(st => {
+            // A. Kiểm tra loại xăng
+            var hasFuel = st.fuels.some(f => selectedFuels.includes(f));
+
+            // B. Kiểm tra khoảng cách (NẾU ĐÃ CÓ VỊ TRÍ NGƯỜI DÙNG)
+            var isInRadius = true;
+            var distText = "";
+            
+            if (userLocation) {
+                var dist = map.distance(userLocation, [st.lat, st.lng]) / 1000; // km
+                if (dist > radiusKm) {
+                    isInRadius = false; // Ngoài bán kính -> Ẩn
+                }
+                distText = `<span class="badge bg-secondary mb-2">Cách bạn: ${dist.toFixed(1)} km</span>`;
+            }
+
+            // CHỈ HIỆN NẾU THỎA MÃN CẢ 2 ĐIỀU KIỆN
+            if (hasFuel && isInRadius) {
+                var marker = L.marker([st.lat, st.lng], {icon: gasIcon});
+                
+                // --- POPUP THÔNG TIN CHI TIẾT ---
+                var fuelBadges = st.fuels.map(f => {
+                    var color = f === 'A95' ? 'success' : (f === 'E5' ? 'success' : 'warning');
+                    return `<span class="badge bg-${color} me-1">${f}</span>`;
+                }).join("");
+
+                var popupContent = `
+                    <div class="text-center" style="min-width: 200px;">
+                        <h6 class="fw-bold text-primary text-uppercase">${st.ten}</h6>
+                        <p class="small mb-1 text-muted"><i class="fas fa-map-marker-alt"></i> ${st.dia_chi}</p>
+                        ${distText}
+                        <div class="mb-2">Sẵn có: ${fuelBadges}</div>
+                        
+                        <hr class="my-2">
+                        <label class="small fw-bold text-dark mb-1">Dẫn đường:</label>
+                        <div class="d-grid gap-2">
+                            <a href="https://www.google.com/maps/dir/?api=1&destination=${st.lat},${st.lng}" 
+                               target="_blank" class="btn btn-sm btn-outline-danger fw-bold">
+                               <i class="fab fa-google"></i> Google Maps
+                            </a>
+
+                            <div class="btn-group" role="group">
+                                <button onclick="timDuongTrongMap(${st.lat}, ${st.lng}, 'car')" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-car"></i> Ô tô
+                                </button>
+                                <button onclick="timDuongTrongMap(${st.lat}, ${st.lng}, 'bike')" class="btn btn-sm btn-info text-white">
+                                    <i class="fas fa-motorcycle"></i> Xe máy
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                marker.bindPopup(popupContent);
+                markersLayer.addLayer(marker);
+            }
+        });
+    }
+
+    // 3. HÀM TÌM ĐƯỜNG TRỰC TIẾP TRÊN BẢN ĐỒ (ROUTING MACHINE)
+    function timDuongTrongMap(destLat, destLng, mode) {
+        if (!userLocation) {
+            alert("Vui lòng bật định vị hoặc tìm kiếm vị trí của bạn trước!");
+            return;
+        }
+
+        // Xóa đường cũ nếu có
+        if (routeLayer) {
+            map.removeControl(routeLayer);
+        }
+
+        // Đóng popup để nhìn bản đồ
+        map.closePopup();
+
+        // Cấu hình tìm đường (OSRM)
+        // Lưu ý: OSRM miễn phí chủ yếu hỗ trợ profile 'car' (lái xe). 
+        // Xe máy ở VN đi khá giống ô tô (trừ cao tốc), nên ta dùng profile car nhưng hiển thị icon xe máy.
+        routeLayer = L.Routing.control({
+            waypoints: [
+                L.latLng(userLocation[0], userLocation[1]),
+                L.latLng(destLat, destLng)
+            ],
+            lineOptions: {
+                styles: [{color: mode === 'car' ? 'blue' : 'purple', opacity: 0.7, weight: 6}]
+            },
+            createMarker: function() { return null; }, // Không tạo thêm marker điểm A/B (vì đã có sẵn)
+            addWaypoints: false,
+            draggableWaypoints: false,
+            fitSelectedRoutes: true,
+            show: false // Ẩn bảng chỉ dẫn chữ (chỉ hiện đường vẽ)
+        }).addTo(map);
+    }
+
+    // 4. HÀM CẬP NHẬT VỊ TRÍ NGƯỜI DÙNG & VÒNG TRÒN
+    function updateUserLocation(lat, lng, popupText) {
+        userLocation = [lat, lng]; // Lưu tọa độ toàn cục
+
+        if (userMarker) map.removeLayer(userMarker);
+        userMarker = L.marker([lat, lng], {
+            icon: L.icon({iconUrl: 'https://cdn-icons-png.flaticon.com/512/9131/9131546.png', iconSize:[40,40]})
+        }).addTo(map).bindPopup(popupText).openPopup();
+
+        map.setView([lat, lng], 14);
+        
+        // Vẽ vòng tròn & Lọc trạm ngay lập tức
+        veVongTron();
+    }
+
+    // 5. HÀM VẼ VÒNG TRÒN & GỌI CẬP NHẬT
+    function veVongTron() {
+        var km = document.getElementById('radiusRange').value;
+        
+        // Cập nhật số hiển thị
+        document.getElementById('radiusVal').innerText = km;
+
+        if (!userLocation) return; // Nếu chưa có vị trí thì thôi
+        
+        if (radiusCircle) map.removeLayer(radiusCircle);
+        
+        radiusCircle = L.circle(userLocation, {
+            color: '#0d6efd',
+            fillColor: '#0d6efd',
+            fillOpacity: 0.05,
+            radius: km * 1000 
+        }).addTo(map);
+
+        // QUAN TRỌNG: Gọi hàm cập nhật bản đồ để ẩn/hiện trạm xăng
+        capNhatBanDo();
+    }
+
+    // 6. SỰ KIỆN INPUT THANH TRƯỢT (KÉO ĐẾN ĐÂU ĂN ĐẾN ĐÓ)
+    function capNhatBanKinh(val) {
+        veVongTron(); // Vẽ lại vòng tròn và lọc lại trạm ngay khi kéo
+    }
+
+    // 7. CÁC HÀM TÌM KIẾM (GPS & ĐỊA CHỈ)
+    function timTramGanNhat() {
+        if (!navigator.geolocation) { console.log("No GPS"); return; }
+        navigator.geolocation.getCurrentPosition(
+            (pos) => updateUserLocation(pos.coords.latitude, pos.coords.longitude, "<b>Bạn đang ở đây</b>"),
+            (err) => console.warn(err)
+        );
+    }
+
+    function timKiemDiaDiem() {
+        var query = document.getElementById('locationInput').value;
+        if(!query) return;
+        var apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=vn&addressdetails=1&limit=1`;
+        fetch(apiUrl).then(res => res.json()).then(data => {
+            if(data.length > 0) updateUserLocation(data[0].lat, data[0].lon, `<b>${data[0].display_name}</b>`);
+            else alert("Không tìm thấy!");
+        });
+    }
+
+    // Chạy lần đầu
+    capNhatBanDo();
+</script>
+{% endblock %}
