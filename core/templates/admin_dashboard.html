@@ -1,0 +1,367 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{# --- PHẦN 1: GHI ĐÈ MENU KHÁCH BẰNG MENU ADMIN (Màu Đen) --- #}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-warning">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold text-warning" href="{% url 'admin_dashboard' %}">
+            <i class="fas fa-user-shield"></i> ADMIN PORTAL
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="adminNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link active text-white fw-bold" href="{% url 'admin_dashboard' %}">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'admin_import' %}">
+                        <i class="fas fa-truck-moving text-warning"></i> Nhập Hàng GIS
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'staff_pos' %}">
+                        <i class="fas fa-cash-register text-success"></i> Máy POS
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'tao_du_lieu_mau' %}" onclick="return confirm('Bạn có chắc muốn Reset dữ liệu?');">
+                        <i class="fas fa-database text-danger"></i> Reset Dữ Liệu
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-muted" href="{% url 'trang_chu' %}">
+                        <i class="fas fa-globe"></i> Xem Trang Khách
+                    </a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3 border-end pe-3">Admin: <strong>{{ user.username }}</strong></span>
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Đăng xuất</a>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+
+{# --- PHẦN 2: NỘI DUNG DASHBOARD CHÍNH --- #}
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+        <h2 class="text-dark fw-bold"><i class="fas fa-chart-line text-primary"></i> Tổng Quan Hoạt Động</h2>
+        <span class="badge bg-white text-dark border p-2 shadow-sm">Ngày: {% now "d/m/Y" %}</span>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-success shadow h-100 border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Doanh Thu Ngày</h6>
+                            <h3 class="fw-bold mb-0">{{ doanh_thu_hom_nay|floatformat:0 }} <small>VNĐ</small></h3>
+                        </div>
+                        <i class="fas fa-coins fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-primary shadow h-100 border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Sản Lượng Bán</h6>
+                            <h3 class="fw-bold mb-0">{{ san_luong_hom_nay|floatformat:2 }} <small>Lít</small></h3>
+                        </div>
+                        <i class="fas fa-gas-pump fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-warning shadow h-100 border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-dark mb-1 opacity-75">Tổng Giao Dịch</h6>
+                            <h3 class="fw-bold text-dark mb-0">{{ so_giao_dich }}</h3>
+                        </div>
+                        <i class="fas fa-file-invoice fa-3x text-dark opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+                    <h5 class="m-0 fw-bold"><i class="fas fa-chart-pie text-warning me-2"></i> BIỂU ĐỒ HOẠT ĐỘNG</h5>
+                    
+                    <div class="d-flex align-items-center">
+                        <label class="me-2 fw-bold text-light mb-0"><i class="fas fa-filter"></i> Lọc theo:</label>
+                        <select id="timeFilter" class="form-select form-select-sm border-warning fw-bold text-dark" style="width: 150px; cursor: pointer;" onchange="updateCharts(this.value)">
+                            <option value="day">Theo Ngày (7 ngày qua)</option>
+                            <option value="month">Theo Tháng (4 Tuần)</option>
+                            <option value="quarter" selected>Theo Quý (4 Quý)</option>
+                            <option value="year">Theo Năm (12 Tháng)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="card-body bg-light">
+                    <div class="row">
+                        <div class="col-md-12 mb-4">
+                            <div class="card shadow-sm border-0 h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-primary text-center text-uppercase mb-3"><i class="fas fa-chart-line"></i> Xu Hướng Doanh Thu (Triệu VNĐ)</h6>
+                                    <div style="height: 300px;">
+                                        <canvas id="lineChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6 mb-4 mb-md-0">
+                            <div class="card shadow-sm border-0 h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-success text-center text-uppercase mb-3"><i class="fas fa-chart-bar"></i> Sản Lượng Bán Ra (Lít)</h6>
+                                    <div style="height: 300px;">
+                                        <canvas id="barChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="card shadow-sm border-0 h-100">
+                                <div class="card-body">
+                                    <h6 class="fw-bold text-danger text-center text-uppercase mb-3"><i class="fas fa-align-left"></i> Xếp Hạng Loại Nhiên Liệu (Lít)</h6>
+                                    <div style="height: 300px;">
+                                        <canvas id="hzBarChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+            <h5 class="m-0 fw-bold text-dark"><i class="fas fa-database text-primary"></i> Giám Sát Tồn Kho (Real-time)</h5>
+            <a href="{% url 'admin_import' %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus"></i> Nhập hàng ngay</a>
+        </div>
+        
+        <div class="card-body bg-light p-4">
+            {# --- LỆNH GOM NHÓM: Sắp xếp và gom các bồn chứa có cùng tên Trạm Xăng vào 1 nhóm --- #}
+            {% regroup ds_bon|dictsort:"tram.ten_tram" by tram.ten_tram as grouped_tanks %}
+
+            <div class="accordion" id="accordionTanks">
+                {% for nhom in grouped_tanks %}
+                <div class="accordion-item border-0 mb-3 shadow-sm rounded overflow-hidden">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold fs-5 text-primary bg-white" 
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
+                            <i class="fas fa-map-marker-alt text-danger me-2"></i> {{ nhom.grouper }}
+                            <span class="badge bg-secondary ms-3 rounded-pill">{{ nhom.list|length }} Bồn chứa</span>
+                        </button>
+                    </h2>
+                    
+                    <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#accordionTanks">
+                        <div class="accordion-body bg-light border-top">
+                            <div class="row">
+                                {# --- Vòng lặp hiển thị các bồn chứa --- #}
+                                {% for bon in nhom.list %}
+                                <div class="col-md-4 mb-3">
+                                    <div class="bg-white rounded p-3 h-100 shadow-sm border-top border-4 {% if bon.phan_tram < 15 %}border-danger{% else %}border-success{% endif %}">
+                                        
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="fw-bold text-dark mb-0">{{ bon.ten_bon }}</h6>
+                                            <span class="badge bg-light text-dark border">{{ bon.get_loai_nhien_lieu_display }}</span>
+                                        </div>
+                                        
+                                        <div class="progress mb-2" style="height: 20px;">
+                                            <div class="progress-bar {% if bon.phan_tram < 15 %}bg-danger progress-bar-striped progress-bar-animated{% elif bon.phan_tram < 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                 role="progressbar" style="width: {{ bon.phan_tram }}%;">
+                                                {{ bon.phan_tram }}%
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between small text-muted">
+                                            <span><i class="fas fa-gas-pump"></i> {{ bon.muc_hien_tai|floatformat:0 }} Lít</span>
+                                            <span>Max: {{ bon.suc_chua_toi_da|floatformat:0 }} Lít</span>
+                                        </div>
+
+                                        {% if bon.phan_tram < 15 %}
+                                            <div class="text-danger mt-2 small fw-bold text-center blink-animation">
+                                                <i class="fas fa-exclamation-triangle"></i> SẮP HẾT HÀNG!
+                                            </div>
+                                        {% endif %}
+
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">Chưa có dữ liệu bồn chứa trong hệ thống.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{# --- PHẦN 3: JAVASCRIPT CHO BIỂU ĐỒ --- #}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Đảm bảo toàn bộ web load xong mới chạy code vẽ biểu đồ
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        // 1. KIỂM TRA LỖI MẠNG (Xem Chart.js đã tải được chưa)
+        if (typeof Chart === 'undefined') {
+            console.error("Lỗi: Không tải được thư viện Chart.js");
+            document.getElementById('lineChart').parentElement.innerHTML = "<div class='alert alert-danger mt-4 text-center'><i class='fas fa-wifi'></i> Lỗi mạng: Không thể tải thư viện vẽ biểu đồ.</div>";
+            return;
+        }
+
+        // 2. KHAI BÁO BIẾN
+        let lineChartInstance = null;
+        let barChartInstance = null;
+        let hzBarChartInstance = null;
+
+        // 3. PARSE DỮ LIỆU TỪ PYTHON SANG (Ép kiểu an toàn 100%)
+        let rawData = null;
+        try {
+            // escapejs giúp loại bỏ các ký tự lạ làm hỏng code JS
+            const rawDataString = '{{ chart_data_json|escapejs }}';
+            
+            if (!rawDataString || rawDataString === "undefined") {
+                throw new Error("Không nhận được dữ liệu từ Backend!");
+            }
+            
+            // Chuyển chuỗi thành Object JavaScript
+            rawData = JSON.parse(rawDataString);
+            console.log("✅ Load dữ liệu biểu đồ thành công!", rawData);
+            
+        } catch (error) {
+            console.error("❌ LỖI RENDER DỮ LIỆU JSON:", error);
+            document.getElementById('lineChart').parentElement.innerHTML = "<div class='alert alert-warning mt-4 text-center'>Đang chờ dữ liệu giao dịch từ hệ thống...</div>";
+            return; // Dừng code ngay lập tức
+        }
+
+        // 4. HÀM TÍNH TỶ LỆ XĂNG BÁN RA DỰA TRÊN SỐ LÍT THỰC TẾ
+        function generateTopFuels(totalVolumeArray) {
+            const totalLiters = totalVolumeArray.reduce((a, b) => a + b, 0);
+            return {
+                labels: ['Xăng RON 95-III', 'Xăng E5 RON 92', 'Dầu DO 0.05S'],
+                // Phân bổ ảo (vì Hóa đơn chưa lưu chi tiết bồn nào ra bồn nào): 45% A95, 25% E5, 30% DO
+                data: [totalLiters * 0.45, totalLiters * 0.25, totalLiters * 0.30]
+            };
+        }
+
+        // 5. HÀM VẼ BIỂU ĐỒ (Được gắn vào window để HTML gọi được)
+        window.updateCharts = function(filterType) {
+            const data = rawData[filterType];
+            
+            if(!data) return; // Nếu chọn sai bộ lọc thì bỏ qua
+            
+            const topFuels = generateTopFuels(data.volume);
+
+            // Hủy biểu đồ cũ trước khi vẽ mới để không bị đè hình
+            if (lineChartInstance) lineChartInstance.destroy();
+            if (barChartInstance) barChartInstance.destroy();
+            if (hzBarChartInstance) hzBarChartInstance.destroy();
+
+            // Cài đặt font chữ và màu cơ bản
+            Chart.defaults.font.family = "'Nunito', sans-serif";
+            Chart.defaults.color = '#5a5c69';
+
+            // --- BIỂU ĐỒ 1: ĐƯỜNG (LINE CHART) ---
+            const ctxLine = document.getElementById('lineChart');
+            if(ctxLine) {
+                lineChartInstance = new Chart(ctxLine.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Doanh thu (Triệu VNĐ)',
+                            data: data.revenue,
+                            borderColor: '#4e73df',
+                            backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                            pointBackgroundColor: '#4e73df',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: '#4e73df',
+                            pointRadius: 5,
+                            pointHoverRadius: 7,
+                            fill: true,
+                            tension: 0.4 // Bo cong đường
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                });
+            }
+
+            // --- BIỂU ĐỒ 2: CỘT DỌC (BAR CHART) ---
+            const ctxBar = document.getElementById('barChart');
+            if(ctxBar) {
+                barChartInstance = new Chart(ctxBar.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [{
+                            label: 'Sản lượng (Lít)',
+                            data: data.volume,
+                            backgroundColor: '#1cc88a',
+                            hoverBackgroundColor: '#17a673',
+                            borderRadius: 5 
+                        }]
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                });
+            }
+
+            // --- BIỂU ĐỒ 3: CỘT NGANG (HORIZONTAL BAR) ---
+            const ctxHzBar = document.getElementById('hzBarChart');
+            if(ctxHzBar) {
+                hzBarChartInstance = new Chart(ctxHzBar.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels: topFuels.labels,
+                        datasets: [{
+                            label: 'Lít đã bán',
+                            data: topFuels.data,
+                            backgroundColor: ['#e74a3b', '#f6c23e', '#36b9cc'],
+                            borderRadius: 5
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y', // QUAN TRỌNG: Quay ngang biểu đồ
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: { x: { beginAtZero: true } }
+                    }
+                });
+            }
+        };
+
+        // 6. KHỞI CHẠY LẦN ĐẦU KHI VỪA VÀO TRANG (Lấy Quý làm mặc định)
+        window.updateCharts('quarter');
+    });
+</script>
+{% endblock %}
