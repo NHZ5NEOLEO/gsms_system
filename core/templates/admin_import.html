@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+
+{# --- MENU ADMIN --- #}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-warning">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold text-warning" href="{% url 'admin_dashboard' %}">
+            <i class="fas fa-user-shield"></i> ADMIN PORTAL
+        </a>
+        <div class="collapse navbar-collapse" id="adminNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link text-white" href="{% url 'admin_dashboard' %}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                <li class="nav-item"><a class="nav-link active text-warning fw-bold" href="{% url 'admin_import' %}"><i class="fas fa-truck-moving"></i> Nhập Hàng GIS</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="{% url 'admin_add_station' %}"><i class="fas fa-plus-circle text-info"></i> Thêm Trạm</a></li>
+                <li class="nav-item"><a class="nav-link text-white" href="{% url 'staff_pos' %}"><i class="fas fa-cash-register text-success"></i> Máy POS</a></li>
+                <li class="nav-item"><a class="nav-link text-muted" href="{% url 'trang_chu' %}"><i class="fas fa-globe"></i> Xem Trang Khách</a></li>
+            </ul>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3 border-end pe-3">Admin: <strong>{{ user.username }}</strong></span>
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Đăng xuất</a>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{# --- NỘI DUNG CHÍNH --- #}
+{% block content %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+    @keyframes blink { 50% { opacity: 0.5; } }
+    .blink-animation { animation: blink 1s infinite; }
+</style>
+
+<div class="container-fluid py-4">
+    <h2 class="text-primary mb-4 fw-bold"><i class="fas fa-route"></i> ĐIỀU PHỐI VẬN TẢI & NHẬP KHO GIS</h2>
+
+    <div class="row">
+        <div class="col-md-8 mb-4">
+            <div class="card shadow h-100 border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <span><i class="fas fa-map-marked-alt text-warning"></i> Bản đồ mạng lưới cung ứng</span>
+                    <span class="badge bg-danger blink-animation">Live Map</span>
+                </div>
+                <div class="card-body p-0 position-relative">
+                    <div id="map" style="height: 650px; width: 100%; z-index: 1;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4 mb-4">
+            <div class="card shadow h-100 border-0">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-clipboard-check"></i> Lệnh Nhập Hàng</h5>
+                </div>
+                <div class="card-body bg-light">
+                    
+                    <div class="alert alert-info shadow-sm border-info border-start border-4 mb-4" id="bang_thong_tin">
+                        <strong class="text-dark"><i class="fas fa-truck-loading text-primary"></i> Lộ trình vận tải:</strong><br>
+                        Từ Kho: <strong class="text-danger" id="info_ncc">Đang chờ...</strong><br>
+                        Đến Trạm: <strong class="text-success" id="info_tram">Đang chờ...</strong>
+                        <hr class="my-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span>Khoảng cách:</span>
+                            <span class="fw-bold fs-6 text-primary" id="info_distance">Đang chờ...</span>
+                        </div>
+                    </div>
+
+                    <form method="POST" class="bg-white p-3 rounded shadow-sm">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-success"><i class="fas fa-gas-pump"></i> 1. Chọn Trạm Nhận:</label>
+                            <select class="form-select border-success fw-bold text-dark shadow-sm" id="tram_select"></select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-muted"><i class="fas fa-database"></i> 2. Bơm vào bồn nào?</label>
+                            <select name="bon_chua" class="form-select border-secondary shadow-sm" id="bon_select"></select>
+                        </div>
+
+                        <hr class="text-muted">
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold text-danger"><i class="fas fa-industry"></i> 3. Nguồn lấy hàng (Kho):</label>
+                            <select name="ncc_id" class="form-select border-danger fw-bold shadow-sm" id="ncc_select">
+                                {% for ncc in ds_ncc %}
+                                <option value="{{ ncc.id }}">{{ ncc.ten_ncc }}</option>
+                                {% empty %}
+                                <option disabled>Chưa có dữ liệu Kho</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="mb-4 mt-4">
+                            <label class="form-label fw-bold text-muted">4. Số lượng nhập (Lít):</label>
+                            <div class="input-group shadow-sm">
+                                <input type="number" name="so_lit" class="form-control fw-bold text-primary fs-5" placeholder="VD: 5000" required min="100">
+                                <span class="input-group-text fw-bold bg-light">Lít</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-success w-100 fw-bold py-3 shadow text-uppercase fs-5">
+                            <i class="fas fa-file-signature"></i> XÁC NHẬN LỆNH NHẬP KHO
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{# --- SCRIPT ĐIỀU PHỐI GIS BẢN AN TOÀN TUYỆT ĐỐI --- #}
+{% block extra_js %}
+
+<script id="ncc-data" type="application/json">{{ ncc_json|safe }}</script>
+<script id="tank-data" type="application/json">{{ tank_json|safe }}</script>
+<script id="station-data" type="application/json">{{ station_json|safe }}</script>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+    // 2. GIẢI MÃ DỮ LIỆU (Có bọc lỗi try-catch)
+    var nccList = [], tankList = [], stationList = [];
+    try {
+        nccList = JSON.parse(document.getElementById('ncc-data').textContent || '[]');
+        tankList = JSON.parse(document.getElementById('tank-data').textContent || '[]');
+        stationList = JSON.parse(document.getElementById('station-data').textContent || '[]');
+    } catch (e) {
+        console.error("Lỗi dữ liệu JSON:", e);
+    }
+
+    // 3. KHỞI TẠO BẢN ĐỒ
+    var map = L.map('map').setView([10.762622, 106.660172], 11);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+
+    var stationIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448636.png', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -40] });
+    var warehouseIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2897/2897817.png', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -30] });
+
+    var destMarker = L.marker([0,0], {icon: stationIcon}).addTo(map);
+    var routeLayer = L.layerGroup().addTo(map);
+
+    function parseCoord(val) { return parseFloat(String(val).replace(',', '.')) || 0; }
+
+    // Chấm các kho xăng lên bản đồ
+    nccList.forEach(ncc => {
+        L.marker([parseCoord(ncc.lat), parseCoord(ncc.lng)], {icon: warehouseIcon})
+        .bindPopup(`<strong class='text-danger'>${ncc.name}</strong>`)
+        .addTo(map);
+    });
+
+    // 4. HÀM CẬP NHẬT GIAO DIỆN (TỰ ĐỘNG VẼ ĐƯỜNG KHI ĐỔI DROPDOWN)
+    function capNhatToanDien() {
+        var tramSelect = document.getElementById('tram_select');
+        var nccSelect = document.getElementById('ncc_select');
+        if(!tramSelect || !nccSelect) return;
+
+        var tramId = String(tramSelect.value);
+        var nccId = String(nccSelect.value);
+
+        var tram = stationList.find(s => String(s.id) === tramId);
+        var ncc = nccList.find(n => String(n.id) === nccId);
+
+        if(!tram || !ncc) return;
+
+        // Cập nhật Bồn Chứa
+        var bonSelect = document.getElementById('bon_select');
+        var oldBonValue = bonSelect.value;
+        bonSelect.innerHTML = '';
+        var tanksOfTram = tankList.filter(t => String(t.tram_id) === tramId);
+        
+        var seenTypes = new Set();
+        var uniqueTanks = [];
+        tanksOfTram.forEach(t => {
+            if (!seenTypes.has(t.loai)) {
+                seenTypes.add(t.loai);
+                uniqueTanks.push(t);
+            }
+        });
+
+        if (uniqueTanks.length === 0) {
+            bonSelect.innerHTML = '<option disabled selected>Trạm này chưa có bồn</option>';
+        } else {
+            uniqueTanks.forEach(t => {
+                var color = t.phan_tram < 15 ? "🔴" : (t.phan_tram < 50 ? "🟡" : "🟢");
+                var freeSpace = t.suc_chua - t.muc_hien_tai;
+                bonSelect.innerHTML += `<option value="${t.id}">${color} ${t.ten_bon} (${t.loai}) - Còn trống: ${freeSpace.toFixed(0)}L</option>`;
+            });
+            if (oldBonValue && uniqueTanks.find(t => String(t.id) === String(oldBonValue))) {
+                bonSelect.value = oldBonValue;
+            }
+        }
+
+        // Cập nhật Bảng Xanh & Bản đồ
+        destMarker.setLatLng([parseCoord(tram.lat), parseCoord(tram.lng)]);
+        destMarker.bindPopup(`<strong class='text-success'>${tram.name}</strong><br>Điểm nhận hàng`).openPopup();
+        map.setView([parseCoord(tram.lat), parseCoord(tram.lng)], 12);
+        
+        document.getElementById('info_tram').innerText = tram.name;
+        document.getElementById('info_ncc').innerText = ncc.name;
+        document.getElementById('info_distance').innerHTML = '<i class="fas fa-spinner fa-spin text-warning"></i> Đang đo...';
+
+        routeLayer.clearLayers();
+
+        var t_lat = parseCoord(tram.lat);
+        var t_lng = parseCoord(tram.lng);
+        var n_lat = parseCoord(ncc.lat);
+        var n_lng = parseCoord(ncc.lng);
+
+        // Gọi API Vẽ Đường OSRM
+        var url = `https://router.project-osrm.org/route/v1/driving/${n_lng},${n_lat};${t_lng},${t_lat}?overview=full&geometries=geojson`;
+
+        fetch(url)
+            .then(res => {
+                if(!res.ok) throw new Error("API lỗi");
+                return res.json();
+            })
+            .then(data => {
+                if (data.routes && data.routes.length > 0) {
+                    var distKm = (data.routes[0].distance / 1000).toFixed(2);
+                    document.getElementById('info_distance').innerHTML = `<span class='text-primary fw-bold fs-5'>${distKm} km</span> <small class="text-muted">(Đường bộ)</small>`;
+                    var coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                    var route = L.polyline(coords, {color: '#ff5722', weight: 6, dashArray: '10, 10', opacity: 0.9}).addTo(routeLayer);
+                    map.fitBounds(route.getBounds(), {padding: [50, 50]});
+                } else {
+                    throw new Error("Không có đường");
+                }
+            })
+            .catch(err => {
+                console.warn("Lỗi mạng, chuyển qua đường chim bay.");
+                var dist = map.distance([t_lat, t_lng], [n_lat, n_lng]) / 1000;
+                document.getElementById('info_distance').innerHTML = `<span class='text-danger fw-bold fs-5'>${dist.toFixed(2)} km</span> <small class="text-danger">(Chim bay)</small>`;
+                var straightLine = L.polyline([[n_lat, n_lng], [t_lat, t_lng]], {color: 'red', weight: 4, dashArray: '5, 5'}).addTo(routeLayer);
+                map.fitBounds(straightLine.getBounds(), {padding: [50, 50]});
+            });
+    }
+
+    // 5. GẮN SỰ KIỆN LẮNG NGHE CHO 2 Ô DROPDOWN
+    document.getElementById('tram_select').addEventListener('change', capNhatToanDien);
+    document.getElementById('ncc_select').addEventListener('change', capNhatToanDien);
+
+    // 6. CHẠY KHI TẢI TRANG
+    window.addEventListener('DOMContentLoaded', function() {
+        var tramSelect = document.getElementById('tram_select');
+        if(stationList.length > 0) {
+            tramSelect.innerHTML = '';
+            stationList.forEach(s => {
+                tramSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
+            });
+        }
+        
+        var nccSelect = document.getElementById('ncc_select');
+        if (nccList.length > 0) {
+            nccSelect.selectedIndex = 0;
+        }
+
+        // Kích hoạt tính đường tự động lần đầu tiên
+        setTimeout(() => { capNhatToanDien(); }, 500); 
+    });
+</script>
+{% endblock %}
