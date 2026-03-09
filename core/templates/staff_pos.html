@@ -1,0 +1,160 @@
+{% extends 'base.html' %}
+
+{# --- PHẦN 1: MENU RIÊNG CHO NHÂN VIÊN (POS) --- #}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-success">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold text-success" href="{% url 'staff_pos' %}">
+            <i class="fas fa-cash-register"></i> POS SYSTEM
+        </a>
+        <div class="d-flex align-items-center ms-auto">
+            <a href="{% url 'staff_pos' %}" class="btn btn-outline-light btn-sm me-2 active">
+                <i class="fas fa-gas-pump"></i> Bán Hàng
+            </a>
+            <a href="{% url 'staff_chot_ca' %}" class="btn btn-danger btn-sm me-3 fw-bold shadow-sm">
+                <i class="fas fa-sign-out-alt"></i> Chốt Ca & Về
+            </a>
+            
+            <span class="text-white border-start ps-3 d-none d-md-block">
+                Nhân viên: <strong>{{ user.username }}</strong>
+            </span>
+
+            {% if user.role == 'admin' %}
+            <a href="{% url 'admin_dashboard' %}" class="btn btn-warning btn-sm ms-3 fw-bold text-dark shadow-sm">
+                <i class="fas fa-user-shield"></i> Về Admin
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{# --- PHẦN 2: GIAO DIỆN BÁN HÀNG --- #}
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-md-7">
+            <div class="card shadow-sm mb-4 h-100 border-0">
+                <div class="card-header bg-success text-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-gas-pump"></i> BƠM NHIÊN LIỆU</h5>
+                    <span class="badge bg-light text-success fw-bold">Trạng thái: Sẵn sàng</span>
+                </div>
+                <div class="card-body p-4 bg-light">
+                    <form method="POST" action="{% url 'xu_ly_ban_hang' %}" id="posForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="loai_giao_dich" value="xang_dau">
+                        
+                        <label class="form-label fw-bold text-secondary mb-2"><i class="fas fa-filter"></i> CHỌN NHIÊN LIỆU:</label>
+                        <div class="row g-2 mb-4">
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="loai_nhien_lieu" id="a95" value="A95" checked>
+                                <label class="btn btn-outline-warning w-100 py-3 fw-bold border-2 h-100 shadow-sm" for="a95">
+                                    <div class="fs-3">A95</div>
+                                    <div class="small text-dark">24,500đ</div>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="loai_nhien_lieu" id="e5" value="E5">
+                                <label class="btn btn-outline-success w-100 py-3 fw-bold border-2 h-100 shadow-sm" for="e5">
+                                    <div class="fs-3">E5</div>
+                                    <div class="small text-dark">23,500đ</div>
+                                </label>
+                            </div>
+                            <div class="col-4">
+                                <input type="radio" class="btn-check" name="loai_nhien_lieu" id="do" value="DO">
+                                <label class="btn btn-outline-primary w-100 py-3 fw-bold border-2 h-100 shadow-sm" for="do">
+                                    <div class="fs-3">DO</div>
+                                    <div class="small text-dark">21,000đ</div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <label class="form-label fw-bold text-secondary mb-2"><i class="fas fa-money-bill-wave"></i> NHẬP SỐ TIỀN (VNĐ):</label>
+                        <div class="input-group input-group-lg mb-3 shadow-sm">
+                            <span class="input-group-text bg-white fw-bold text-success border-end-0">VNĐ</span>
+                            <input type="number" name="so_tien" id="inputTien" class="form-control fw-bold text-success fs-1 text-end border-start-0" placeholder="0" required min="1000">
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex mb-4">
+                            <button type="button" class="btn btn-white border flex-fill fw-bold py-2 shadow-sm" onclick="setMoney(20000)">20k</button>
+                            <button type="button" class="btn btn-white border flex-fill fw-bold py-2 shadow-sm" onclick="setMoney(50000)">50k</button>
+                            <button type="button" class="btn btn-white border flex-fill fw-bold py-2 shadow-sm" onclick="setMoney(100000)">100k</button>
+                            <button type="button" class="btn btn-white border flex-fill fw-bold py-2 shadow-sm" onclick="setMoney(500000)">500k</button>
+                            <button type="button" class="btn btn-white border flex-fill fw-bold py-2 shadow-sm text-primary" onclick="setMoney(1000000)">1 Triệu</button>
+                        </div>
+
+                        <hr class="text-secondary opacity-25 mb-4">
+
+                        <button type="submit" class="btn btn-success w-100 py-3 fw-bold fs-3 shadow text-uppercase btn-lg">
+                            <i class="fas fa-print me-2"></i> XUẤT HÓA ĐƠN & BƠM
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-header bg-dark text-white py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 fw-bold"><i class="fas fa-history"></i> LỊCH SỬ CA NÀY</h5>
+                    <span class="badge bg-danger blink-animation">Live</span>
+                </div>
+                <div class="card-body p-0 overflow-auto bg-white" style="max-height: 600px;">
+                    <ul class="list-group list-group-flush">
+                        {% for hd in lich_su_ban %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center py-3 border-bottom">
+                            <div>
+                                <div class="fw-bold text-dark d-flex align-items-center">
+                                    <span class="badge bg-secondary me-2">{{ forloop.counter }}</span>
+                                    {{ hd.ma_hd }}
+                                </div>
+                                <small class="text-muted"><i class="far fa-clock"></i> {{ hd.thoi_gian|date:"H:i:s" }}</small>
+                            </div>
+                            <div class="text-end">
+                                <div class="fw-bold text-success fs-5">+ {{ hd.tong_tien|floatformat:0 }}</div>
+                                <span class="badge bg-light text-dark border">Tiền mặt</span>
+                            </div>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-center text-muted py-5">
+                            <i class="fas fa-receipt fa-3x mb-3 opacity-25"></i>
+                            <p>Chưa có giao dịch nào trong ca này.</p>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                <div class="card-footer bg-white p-3 border-top">
+                    <a href="{% url 'staff_chot_ca' %}" class="btn btn-outline-danger w-100 fw-bold py-2">
+                        <i class="fas fa-file-invoice-dollar"></i> TỔNG KẾT DOANH THU CA
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Hiệu ứng nhấp nháy cho chữ Live */
+    @keyframes blink { 50% { opacity: 0.5; } }
+    .blink-animation { animation: blink 1s infinite; }
+    .btn-white { background-color: white; }
+    .btn-white:hover { background-color: #f8f9fa; border-color: #adb5bd; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Hàm chọn tiền nhanh
+    function setMoney(amount) {
+        let input = document.getElementById('inputTien');
+        input.value = amount;
+        
+        // Hiệu ứng Visual feedback
+        input.style.backgroundColor = "#d1e7dd"; // Màu xanh nhạt
+        input.style.transition = "background-color 0.3s";
+        setTimeout(() => { input.style.backgroundColor = "white"; }, 300);
+        
+        input.focus();
+    }
+</script>
+{% endblock %}

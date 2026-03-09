@@ -1,0 +1,166 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{# --- PHẦN 1: GHI ĐÈ MENU KHÁCH BẰNG MENU ADMIN (Màu Đen) --- #}
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-warning">
+    <div class="container-fluid px-4">
+        <a class="navbar-brand fw-bold text-warning" href="{% url 'admin_dashboard' %}">
+            <i class="fas fa-user-shield"></i> ADMIN PORTAL
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="adminNav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item">
+                    <a class="nav-link active text-white fw-bold" href="{% url 'admin_dashboard' %}">
+                        <i class="fas fa-tachometer-alt"></i> Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'admin_import' %}">
+                        <i class="fas fa-truck-moving text-warning"></i> Nhập Hàng GIS
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'staff_pos' %}">
+                        <i class="fas fa-cash-register text-success"></i> Máy POS
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-white" href="{% url 'tao_du_lieu_mau' %}" onclick="return confirm('Bạn có chắc muốn Reset dữ liệu?');">
+                        <i class="fas fa-database text-danger"></i> Reset Dữ Liệu
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link text-muted" href="{% url 'trang_chu' %}">
+                        <i class="fas fa-globe"></i> Xem Trang Khách
+                    </a>
+                </li>
+            </ul>
+            <div class="d-flex align-items-center">
+                <span class="text-white me-3 border-end pe-3">Admin: <strong>{{ user.username }}</strong></span>
+                <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm">Đăng xuất</a>
+            </div>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+
+{# --- PHẦN 2: NỘI DUNG DASHBOARD CHÍNH --- #}
+{% block content %}
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-4 mt-3">
+        <h2 class="text-dark fw-bold"><i class="fas fa-chart-line text-primary"></i> Tổng Quan Hoạt Động</h2>
+        <span class="badge bg-white text-dark border p-2 shadow-sm">Ngày: {% now "d/m/Y" %}</span>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-success shadow h-100 border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Doanh Thu Ngày</h6>
+                            <h3 class="fw-bold mb-0">{{ doanh_thu_hom_nay|floatformat:0 }} <small>VNĐ</small></h3>
+                        </div>
+                        <i class="fas fa-coins fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-primary shadow h-100 border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase mb-1 opacity-75">Sản Lượng Bán</h6>
+                            <h3 class="fw-bold mb-0">{{ san_luong_hom_nay|floatformat:2 }} <small>Lít</small></h3>
+                        </div>
+                        <i class="fas fa-gas-pump fa-3x opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-3">
+            <div class="card text-white bg-warning shadow h-100 border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-dark mb-1 opacity-75">Tổng Giao Dịch</h6>
+                            <h3 class="fw-bold text-dark mb-0">{{ so_giao_dich }}</h3>
+                        </div>
+                        <i class="fas fa-file-invoice fa-3x text-dark opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+        <h5 class="m-0 fw-bold text-dark"><i class="fas fa-database text-primary"></i> Giám Sát Tồn Kho (Real-time)</h5>
+        <a href="{% url 'admin_import' %}" class="btn btn-sm btn-outline-primary"><i class="fas fa-plus"></i> Nhập hàng ngay</a>
+        </div>
+        
+        <div class="card-body bg-light p-4">
+            
+            {# --- LỆNH GOM NHÓM: Sắp xếp và gom các bồn chứa có cùng tên Trạm Xăng vào 1 nhóm --- #}
+            {% regroup ds_bon|dictsort:"tram.ten_tram" by tram.ten_tram as grouped_tanks %}
+
+            <div class="accordion" id="accordionTanks">
+                {% for nhom in grouped_tanks %}
+                <div class="accordion-item border-0 mb-3 shadow-sm rounded overflow-hidden">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold fs-5 text-primary bg-white" 
+                                type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
+                            <i class="fas fa-map-marker-alt text-danger me-2"></i> {{ nhom.grouper }}
+                            <span class="badge bg-secondary ms-3 rounded-pill">{{ nhom.list|length }} Bồn chứa</span>
+                        </button>
+                    </h2>
+                    
+                    <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#accordionTanks">
+                        <div class="accordion-body bg-light border-top">
+                            <div class="row">
+                                {# --- Vòng lặp hiển thị các bồn chứa BÊN TRONG trạm đó --- #}
+                                {% for bon in nhom.list %}
+                                <div class="col-md-4 mb-3">
+                                    <div class="bg-white rounded p-3 h-100 shadow-sm border-top border-4 {% if bon.phan_tram < 15 %}border-danger{% else %}border-success{% endif %}">
+                                        
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="fw-bold text-dark mb-0">{{ bon.ten_bon }}</h6>
+                                            <span class="badge bg-light text-dark border">{{ bon.get_loai_nhien_lieu_display }}</span>
+                                        </div>
+                                        
+                                        <div class="progress mb-2" style="height: 20px;">
+                                            <div class="progress-bar {% if bon.phan_tram < 15 %}bg-danger progress-bar-striped progress-bar-animated{% elif bon.phan_tram < 50 %}bg-warning{% else %}bg-success{% endif %}" 
+                                                 role="progressbar" style="width: {{ bon.phan_tram }}%;">
+                                                {{ bon.phan_tram }}%
+                                            </div>
+                                        </div>
+
+                                        <div class="d-flex justify-content-between small text-muted">
+                                            <span><i class="fas fa-gas-pump"></i> {{ bon.muc_hien_tai|floatformat:0 }} Lít</span>
+                                            <span>Max: {{ bon.suc_chua_toi_da|floatformat:0 }} Lít</span>
+                                        </div>
+
+                                        {% if bon.phan_tram < 15 %}
+                                            <div class="text-danger mt-2 small fw-bold text-center blink-animation">
+                                                <i class="fas fa-exclamation-triangle"></i> SẮP HẾT HÀNG!
+                                            </div>
+                                        {% endif %}
+
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">Chưa có dữ liệu bồn chứa trong hệ thống.</div>
+                {% endfor %}
+            </div>
+        </div>
+{% endblock %}
