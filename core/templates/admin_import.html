@@ -1,26 +1,16 @@
 {% extends 'base.html' %}
 
-{# --- MENU ADMIN --- #}
 {% block navbar %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-warning">
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold text-warning" href="{% url 'admin_dashboard' %}">
             <i class="fas fa-user-shield"></i> ADMIN PORTAL
         </a>
-<<<<<<< HEAD
-=======
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
         <div class="collapse navbar-collapse" id="adminNav">
             <ul class="navbar-nav me-auto">
                 <li class="nav-item"><a class="nav-link text-white" href="{% url 'admin_dashboard' %}"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
                 <li class="nav-item"><a class="nav-link active text-warning fw-bold" href="{% url 'admin_import' %}"><i class="fas fa-truck-moving"></i> Nhập Hàng GIS</a></li>
-<<<<<<< HEAD
                 <li class="nav-item"><a class="nav-link text-white" href="{% url 'admin_add_station' %}"><i class="fas fa-plus-circle text-info"></i> Thêm Trạm</a></li>
-=======
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
                 <li class="nav-item"><a class="nav-link text-white" href="{% url 'staff_pos' %}"><i class="fas fa-cash-register text-success"></i> Máy POS</a></li>
                 <li class="nav-item"><a class="nav-link text-muted" href="{% url 'trang_chu' %}"><i class="fas fa-globe"></i> Xem Trang Khách</a></li>
             </ul>
@@ -33,7 +23,6 @@
 </nav>
 {% endblock %}
 
-{# --- NỘI DUNG CHÍNH --- #}
 {% block content %}
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
@@ -46,17 +35,10 @@
     <h2 class="text-primary mb-4 fw-bold"><i class="fas fa-route"></i> ĐIỀU PHỐI VẬN TẢI & NHẬP KHO GIS</h2>
 
     <div class="row">
-<<<<<<< HEAD
         <div class="col-md-8 mb-4">
             <div class="card shadow h-100 border-0">
                 <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
                     <span><i class="fas fa-map-marked-alt text-warning"></i> Bản đồ mạng lưới cung ứng</span>
-=======
-        <div class="col-md-8">
-            <div class="card shadow mb-4 h-100 border-0">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <span><i class="fas fa-map-marked-alt text-warning"></i> Lộ trình Xe bồn (Thời gian thực)</span>
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
                     <span class="badge bg-danger blink-animation">Live Map</span>
                 </div>
                 <div class="card-body p-0 position-relative">
@@ -65,18 +47,46 @@
             </div>
         </div>
 
-<<<<<<< HEAD
         <div class="col-md-4 mb-4">
-=======
-        <div class="col-md-4">
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
-            <div class="card shadow h-100 border-0">
+            
+            {% if ds_yeu_cau %}
+            <div class="card border-danger mb-4 shadow-sm">
+                <div class="card-header bg-danger text-white fw-bold py-2">
+                    <i class="fas fa-bell blink-animation"></i> YÊU CẦU CẤP HÀNG ({{ ds_yeu_cau|length }})
+                </div>
+                <div class="card-body p-0" style="max-height: 250px; overflow-y: auto;">
+                    <ul class="list-group list-group-flush">
+                        {% for yc in ds_yeu_cau %}
+                        <li class="list-group-item py-3">
+                            <div class="fw-bold text-dark mb-1"><i class="fas fa-store-alt text-success"></i> {{ yc.tram.ten_tram }}</div>
+                            <div class="small text-muted">Cần nhập: <strong class="text-primary fs-6">{{ yc.so_luong|floatformat:0 }}L {{ yc.loai_nhien_lieu }}</strong></div>
+                            
+                            {% if yc.ghi_chu %}
+                            <div class="small fst-italic text-secondary bg-light p-2 mt-2 border-start border-3 border-warning rounded">
+                                "{{ yc.ghi_chu }}"
+                            </div>
+                            {% endif %}
+                            
+                            <div class="mt-3 text-end">
+                              <button type="button" class="btn btn-sm btn-danger shadow-sm fw-bold" onclick="dienFormTuDong('{{ yc.tram.id }}', '{{ yc.loai_nhien_lieu }}', {{ yc.so_luong }})">
+    <i class="fas fa-magic"></i> Lập lệnh chuyển hàng
+</button>
+                                    <i class="fas fa-check-circle"></i> Đánh dấu đã giao
+                                </a>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card shadow border-0">
                 <div class="card-header bg-success text-white">
                     <h5 class="mb-0 fw-bold"><i class="fas fa-clipboard-check"></i> Lệnh Nhập Hàng</h5>
                 </div>
                 <div class="card-body bg-light">
                     
-<<<<<<< HEAD
                     <div class="alert alert-info shadow-sm border-info border-start border-4 mb-4" id="bang_thong_tin">
                         <strong class="text-dark"><i class="fas fa-truck-loading text-primary"></i> Lộ trình vận tải:</strong><br>
                         Từ Kho: <strong class="text-danger" id="info_ncc">Đang chờ...</strong><br>
@@ -85,16 +95,6 @@
                         <div class="d-flex justify-content-between align-items-center">
                             <span>Khoảng cách:</span>
                             <span class="fw-bold fs-6 text-primary" id="info_distance">Đang chờ...</span>
-=======
-                    <div class="alert alert-info shadow-sm border-info border-start border-4">
-                        <strong class="text-dark"><i class="fas fa-truck text-primary"></i> Tuyến đường:</strong><br>
-                        Từ Kho: <strong class="text-danger" id="info_ncc">...</strong><br>
-                        Đến Trạm: <strong class="text-success" id="info_tram">...</strong>
-                        <hr class="my-2">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <span>Khoảng cách:</span>
-                            <span class="fw-bold fs-6 text-primary" id="info_distance">Chờ lệnh tính toán...</span>
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
                         </div>
                     </div>
 
@@ -124,15 +124,7 @@
                             </select>
                         </div>
 
-<<<<<<< HEAD
                         <div class="mb-4 mt-4">
-=======
-                        <button type="button" id="btn_tinh_toan" class="btn btn-warning w-100 fw-bold mb-4 shadow-sm py-2">
-                            <i class="fas fa-map-marked-alt me-1"></i> TÍNH TOÁN LỘ TRÌNH VẬN TẢI
-                        </button>
-
-                        <div class="mb-4">
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
                             <label class="form-label fw-bold text-muted">4. Số lượng nhập (Lít):</label>
                             <div class="input-group shadow-sm">
                                 <input type="number" name="so_lit" class="form-control fw-bold text-primary fs-5" placeholder="VD: 5000" required min="100">
@@ -141,11 +133,7 @@
                         </div>
 
                         <button type="submit" class="btn btn-success w-100 fw-bold py-3 shadow text-uppercase fs-5">
-<<<<<<< HEAD
                             <i class="fas fa-file-signature"></i> XÁC NHẬN LỆNH NHẬP KHO
-=======
-                            <i class="fas fa-file-signature"></i> XÁC NHẬN NHẬP KHO
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
                         </button>
                     </form>
                 </div>
@@ -155,17 +143,13 @@
 </div>
 {% endblock %}
 
-<<<<<<< HEAD
-{# --- SCRIPT ĐIỀU PHỐI GIS BẢN AN TOÀN TUYỆT ĐỐI --- #}
 {% block extra_js %}
-
 <script id="ncc-data" type="application/json">{{ ncc_json|safe }}</script>
 <script id="tank-data" type="application/json">{{ tank_json|safe }}</script>
 <script id="station-data" type="application/json">{{ station_json|safe }}</script>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-    // 2. GIẢI MÃ DỮ LIỆU (Có bọc lỗi try-catch)
     var nccList = [], tankList = [], stationList = [];
     try {
         nccList = JSON.parse(document.getElementById('ncc-data').textContent || '[]');
@@ -175,57 +159,6 @@
         console.error("Lỗi dữ liệu JSON:", e);
     }
 
-    // 3. KHỞI TẠO BẢN ĐỒ
-=======
-{# --- SCRIPT ĐIỀU PHỐI GIS --- #}
-{% block extra_js %}
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-    // ==========================================
-    // 1. DỮ LIỆU
-    // ==========================================
-    var nccList = [
-        {% for ncc in ds_ncc %}
-        {
-            id: String("{{ ncc.id }}"),
-            name: "{{ ncc.ten_ncc|escapejs }}",
-            lat: parseFloat("{{ ncc.latitude|stringformat:'f' }}".replace(',', '.')),
-            lng: parseFloat("{{ ncc.longitude|stringformat:'f' }}".replace(',', '.')),
-            address: "{{ ncc.dia_chi|escapejs }}"
-        },
-        {% endfor %}
-    ];
-
-    var tankList = [
-        {% for bon in ds_bon %}
-        {
-            id: String("{{ bon.id }}"),
-            ten_bon: "{{ bon.ten_bon|escapejs }}",
-            loai: "{{ bon.get_loai_nhien_lieu_display|escapejs }}",
-            muc_hien_tai: parseFloat("{{ bon.muc_hien_tai|stringformat:'f'|default:'0' }}".replace(',', '.')),
-            suc_chua: parseFloat("{{ bon.suc_chua_toi_da|stringformat:'f'|default:'0' }}".replace(',', '.')),
-            phan_tram: parseFloat("{{ bon.phan_tram|stringformat:'f'|default:'0' }}".replace(',', '.')),
-            tram_id: String("{{ bon.tram.id|default:'0' }}"),
-            tram_ten: "{{ bon.tram.ten_tram|escapejs|default:'Chưa có tên' }}",
-            tram_lat: parseFloat("{{ bon.tram.latitude|stringformat:'f'|default:'10.762622' }}".replace(',', '.')),
-            tram_lng: parseFloat("{{ bon.tram.longitude|stringformat:'f'|default:'106.660172' }}".replace(',', '.'))
-        },
-        {% endfor %}
-    ];
-
-    var stationList = [];
-    var stationIds = [];
-    tankList.forEach(t => {
-        if (!stationIds.includes(t.tram_id) && t.tram_id !== "0") {
-            stationIds.push(t.tram_id);
-            stationList.push({ id: t.tram_id, name: t.tram_ten, lat: t.tram_lat, lng: t.tram_lng });
-        }
-    });
-
-    // ==========================================
-    // 2. KHỞI TẠO BẢN ĐỒ
-    // ==========================================
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
     var map = L.map('map').setView([10.762622, 106.660172], 11);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
@@ -233,19 +166,16 @@
     var warehouseIcon = L.icon({ iconUrl: 'https://cdn-icons-png.flaticon.com/512/2897/2897817.png', iconSize: [40, 40], iconAnchor: [20, 40], popupAnchor: [0, -30] });
 
     var destMarker = L.marker([0,0], {icon: stationIcon}).addTo(map);
-<<<<<<< HEAD
     var routeLayer = L.layerGroup().addTo(map);
 
     function parseCoord(val) { return parseFloat(String(val).replace(',', '.')) || 0; }
 
-    // Chấm các kho xăng lên bản đồ
     nccList.forEach(ncc => {
         L.marker([parseCoord(ncc.lat), parseCoord(ncc.lng)], {icon: warehouseIcon})
         .bindPopup(`<strong class='text-danger'>${ncc.name}</strong>`)
         .addTo(map);
     });
 
-    // 4. HÀM CẬP NHẬT GIAO DIỆN (TỰ ĐỘNG VẼ ĐƯỜNG KHI ĐỔI DROPDOWN)
     function capNhatToanDien() {
         var tramSelect = document.getElementById('tram_select');
         var nccSelect = document.getElementById('ncc_select');
@@ -259,7 +189,6 @@
 
         if(!tram || !ncc) return;
 
-        // Cập nhật Bồn Chứa
         var bonSelect = document.getElementById('bon_select');
         var oldBonValue = bonSelect.value;
         bonSelect.innerHTML = '';
@@ -287,14 +216,18 @@
             }
         }
 
-        // Cập nhật Bảng Xanh & Bản đồ
         destMarker.setLatLng([parseCoord(tram.lat), parseCoord(tram.lng)]);
         destMarker.bindPopup(`<strong class='text-success'>${tram.name}</strong><br>Điểm nhận hàng`).openPopup();
         map.setView([parseCoord(tram.lat), parseCoord(tram.lng)], 12);
         
-        document.getElementById('info_tram').innerText = tram.name;
-        document.getElementById('info_ncc').innerText = ncc.name;
-        document.getElementById('info_distance').innerHTML = '<i class="fas fa-spinner fa-spin text-warning"></i> Đang đo...';
+        // --- BẢO VỆ CHỐNG LỖI HIỂN THỊ ---
+        var elTram = document.getElementById('info_tram');
+        var elNcc = document.getElementById('info_ncc');
+        var elDist = document.getElementById('info_distance');
+
+        if (elTram) elTram.innerText = tram.name;
+        if (elNcc) elNcc.innerText = ncc.name;
+        if (elDist) elDist.innerHTML = '<i class="fas fa-spinner fa-spin text-warning"></i> Đang đo...';
 
         routeLayer.clearLayers();
 
@@ -303,7 +236,6 @@
         var n_lat = parseCoord(ncc.lat);
         var n_lng = parseCoord(ncc.lng);
 
-        // Gọi API Vẽ Đường OSRM
         var url = `https://router.project-osrm.org/route/v1/driving/${n_lng},${n_lat};${t_lng},${t_lat}?overview=full&geometries=geojson`;
 
         fetch(url)
@@ -314,7 +246,7 @@
             .then(data => {
                 if (data.routes && data.routes.length > 0) {
                     var distKm = (data.routes[0].distance / 1000).toFixed(2);
-                    document.getElementById('info_distance').innerHTML = `<span class='text-primary fw-bold fs-5'>${distKm} km</span> <small class="text-muted">(Đường bộ)</small>`;
+                    if (elDist) elDist.innerHTML = `<span class='text-primary fw-bold fs-5'>${distKm} km</span>`;
                     var coords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
                     var route = L.polyline(coords, {color: '#ff5722', weight: 6, dashArray: '10, 10', opacity: 0.9}).addTo(routeLayer);
                     map.fitBounds(route.getBounds(), {padding: [50, 50]});
@@ -323,19 +255,16 @@
                 }
             })
             .catch(err => {
-                console.warn("Lỗi mạng, chuyển qua đường chim bay.");
                 var dist = map.distance([t_lat, t_lng], [n_lat, n_lng]) / 1000;
-                document.getElementById('info_distance').innerHTML = `<span class='text-danger fw-bold fs-5'>${dist.toFixed(2)} km</span> <small class="text-danger">(Chim bay)</small>`;
+                if (elDist) elDist.innerHTML = `<span class='text-danger fw-bold fs-5'>${dist.toFixed(2)} km</span> <small>(Chim bay)</small>`;
                 var straightLine = L.polyline([[n_lat, n_lng], [t_lat, t_lng]], {color: 'red', weight: 4, dashArray: '5, 5'}).addTo(routeLayer);
                 map.fitBounds(straightLine.getBounds(), {padding: [50, 50]});
             });
     }
 
-    // 5. GẮN SỰ KIỆN LẮNG NGHE CHO 2 Ô DROPDOWN
     document.getElementById('tram_select').addEventListener('change', capNhatToanDien);
     document.getElementById('ncc_select').addEventListener('change', capNhatToanDien);
 
-    // 6. CHẠY KHI TẢI TRANG
     window.addEventListener('DOMContentLoaded', function() {
         var tramSelect = document.getElementById('tram_select');
         if(stationList.length > 0) {
@@ -350,148 +279,42 @@
             nccSelect.selectedIndex = 0;
         }
 
-        // Kích hoạt tính đường tự động lần đầu tiên
         setTimeout(() => { capNhatToanDien(); }, 500); 
     });
-=======
-    
-    // Tạo 1 layer trống để chứa đường kẻ
-    var routeLayer = L.layerGroup().addTo(map);
-
-    nccList.forEach(ncc => {
-        L.marker([ncc.lat, ncc.lng], {icon: warehouseIcon})
-            .bindPopup(`<strong class='text-danger'>${ncc.name}</strong><br><small>${ncc.address}</small>`)
-            .addTo(map);
-    });
-
-    // ==========================================
-    // 3. CÁC HÀM XỬ LÝ SỰ KIỆN
-    // ==========================================
-
-    function capNhatTramVaBon() {
+    // HÀM TỰ ĐỘNG ĐIỀN FORM TỪ YÊU CẦU CỦA TRẠM
+    function dienFormTuDong(tramId, loaiNl, soLuong) {
+        // 1. Chọn đúng Trạm
         var tramSelect = document.getElementById('tram_select');
-        if(!tramSelect || !tramSelect.value) return;
-
-        var tramId = String(tramSelect.value);
-        var selectedTram = stationList.find(s => s.id === tramId);
+        tramSelect.value = tramId;
         
-        if(selectedTram) {
-            destMarker.setLatLng([selectedTram.lat, selectedTram.lng]);
-            destMarker.bindPopup(`<strong class='text-success'>${selectedTram.name}</strong><br>Điểm nhận hàng`).openPopup();
-            map.setView([selectedTram.lat, selectedTram.lng], 13);
-            document.getElementById('info_tram').innerText = selectedTram.name;
-        }
+        // Kích hoạt vẽ bản đồ và nạp danh sách Bồn
+        capNhatToanDien();
 
-        var bonSelect = document.getElementById('bon_select');
-        bonSelect.innerHTML = '';
-        var tanksOfTram = tankList.filter(t => t.tram_id === tramId);
-        
-        tanksOfTram.forEach(t => {
-            var color = t.phan_tram < 15 ? "🔴" : (t.phan_tram < 50 ? "🟡" : "🟢");
-            var freeSpace = t.suc_chua - t.muc_hien_tai;
-            bonSelect.innerHTML += `<option value="${t.id}">${color} ${t.ten_bon} (${t.loai}) - Còn trống: ${freeSpace.toFixed(0)}L</option>`;
-        });
+        // 2. Chờ 200ms để danh sách bồn kịp nạp xong, sau đó chọn đúng Bồn
+        setTimeout(() => {
+            var bonSelect = document.getElementById('bon_select');
+            for (var i = 0; i < bonSelect.options.length; i++) {
+                if (bonSelect.options[i].text.includes(loaiNl)) {
+                    bonSelect.selectedIndex = i;
+                    break;
+                }
+            }
+            
+            // 3. Điền Số lượng Lít
+            document.querySelector('input[name="so_lit"]').value = soLuong;
 
-        routeLayer.clearLayers();
-        document.getElementById('info_distance').innerText = "Chờ lệnh tính toán...";
+            // 4. Cuộn màn hình xuống Form và nhấp nháy form màu đỏ để chú ý
+            var theForm = document.querySelector('form');
+            theForm.scrollIntoView({behavior: 'smooth', block: 'center'});
+            theForm.classList.add('border', 'border-danger', 'border-4');
+            
+            // Bỏ viền đỏ sau 2 giây
+            setTimeout(() => { theForm.classList.remove('border-danger', 'border-4'); }, 2000);
+            
+            // Focus vào nguồn lấy hàng để Admin chọn Kho
+            document.getElementById('ncc_select').focus();
+
+        }, 200);
     }
-
-    document.getElementById('tram_select').addEventListener('change', capNhatTramVaBon);
-    
-    document.getElementById('ncc_select').addEventListener('change', function() {
-        var nccName = this.options[this.selectedIndex].text;
-        document.getElementById('info_ncc').innerText = nccName;
-        routeLayer.clearLayers();
-        document.getElementById('info_distance').innerText = "Chờ lệnh tính toán...";
-    });
-
-    // ==========================================
-    // 4. API TÍNH TOÁN ĐƯỜNG ĐI (TỰ VIẾT LẠI 100%)
-    // ==========================================
-    document.getElementById('btn_tinh_toan').addEventListener('click', function() {
-        var tramId = String(document.getElementById('tram_select').value);
-        var nccId = String(document.getElementById('ncc_select').value);
-        
-        if(!tramId || !nccId) {
-            alert("Vui lòng chọn đầy đủ Trạm và Kho!");
-            return;
-        }
-
-        var tram = stationList.find(s => s.id === tramId);
-        var ncc = nccList.find(n => n.id === nccId);
-
-        if (tram && ncc) {
-            document.getElementById('info_distance').innerHTML = '<i class="fas fa-spinner fa-spin text-warning"></i> Đang gọi vệ tinh...';
-            routeLayer.clearLayers(); // Xóa sạch đường cũ
-
-            // Tự gọi API trực tiếp của OSRM thay vì dùng thư viện
-            var url = `https://router.project-osrm.org/route/v1/driving/${ncc.lng},${ncc.lat};${tram.lng},${tram.lat}?overview=full&geometries=geojson`;
-
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.routes && data.routes.length > 0) {
-                        // 1. Lấy dữ liệu khoảng cách
-                        var distKm = (data.routes[0].distance / 1000).toFixed(2);
-                        document.getElementById('info_distance').innerHTML = `${distKm} km <small class='text-muted'>(Đường bộ)</small>`;
-
-                        // 2. Chuyển đổi tọa độ GeoJSON (LngLat) sang Leaflet (LatLng)
-                        var coordinates = data.routes[0].geometry.coordinates.map(coord => [coord[1], coord[0]]);
-
-                        // 3. Vẽ Polyline đẹp mắt cho xe bồn
-                        var duongBo = L.polyline(coordinates, {
-                            color: '#ff5722', 
-                            weight: 6, 
-                            dashArray: '10, 10', 
-                            opacity: 0.9
-                        }).addTo(routeLayer);
-
-                        map.fitBounds(duongBo.getBounds(), {padding: [50, 50]});
-                    } else {
-                        throw new Error("Không có đường đi");
-                    }
-                })
-                .catch(err => {
-                    console.error("Lỗi API Đường bộ:", err);
-                    
-                    // FALLBACK: NẾU API CHẾT HOẶC KẸT MẠNG -> TỰ VẼ ĐƯỜNG THẲNG
-                    var distChimBay = map.distance([tram.lat, tram.lng], [ncc.lat, ncc.lng]) / 1000;
-                    document.getElementById('info_distance').innerHTML = `${distChimBay.toFixed(2)} km <small class='text-danger'>(Đường thẳng)</small>`;
-                    
-                    var duongThang = L.polyline([
-                        [ncc.lat, ncc.lng],
-                        [tram.lat, tram.lng]
-                    ], {color: 'red', weight: 4}).addTo(routeLayer);
-                    
-                    map.fitBounds(duongThang.getBounds(), {padding: [50, 50]});
-                });
-        }
-    });
-
-    // ==========================================
-    // 5. CHẠY KHỞI TẠO BAN ĐẦU
-    // ==========================================
-    function init() {
-        var tramSelect = document.getElementById('tram_select');
-        tramSelect.innerHTML = '';
-        
-        if(stationList.length === 0) {
-            tramSelect.innerHTML = '<option disabled selected>Chưa có dữ liệu trạm</option>';
-            return;
-        }
-        
-        stationList.forEach(s => {
-            tramSelect.innerHTML += `<option value="${s.id}">${s.name}</option>`;
-        });
-        
-        capNhatTramVaBon();
-        
-        var firstNccName = document.getElementById('ncc_select').options[0].text;
-        document.getElementById('info_ncc').innerText = firstNccName;
-    }
-
-    init();
-
->>>>>>> 05baa0dc02c1ade7639218609a0610767e1ff098
 </script>
 {% endblock %}

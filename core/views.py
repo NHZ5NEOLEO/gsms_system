@@ -9,7 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum, Count
 from django.utils import timezone
 from .models import TramXang, BonChua, NhaCungCap, HoaDon, ChiTietHoaDon, TinTuc, DanhMuc, SanPham, PhieuNhap
-
+from django.contrib.auth import get_user_model
+User = get_user_model()
 
 # ==========================================
 # 1. HỆ THỐNG XÁC THỰC (AUTH)
@@ -141,7 +142,9 @@ def admin_import(request):
     if request.user.role != 'admin':
         return redirect('trang_chu')
 
-    # XỬ LÝ KHI BẤM NÚT "PHÁT LỆNH NHẬP KHO"
+    # ========================================================
+    # XỬ LÝ FORM NHẬP KHO (VÀ TỰ ĐỘNG ĐÓNG YÊU CẦU)
+    # ========================================================
     if request.method == 'POST':
         try:
             ncc_id = request.POST.get('ncc_id')
@@ -157,8 +160,11 @@ def admin_import(request):
             if bon.muc_hien_tai + so_lit > bon.suc_chua_toi_da:
                 messages.error(request, f"Cảnh báo: Bồn {bon.ten_bon} không đủ sức chứa!")
             else:
+                # 1. Bơm xăng vào bồn
                 bon.muc_hien_tai += so_lit
                 bon.save()
+                
+                # 2. Tạo phiếu nhập
                 PhieuNhap.objects.create(
                     ma_pn=f"PN-{timezone.now().strftime('%d%m%H%M')}",
                     nha_cung_cap_id=ncc_id,
@@ -166,62 +172,51 @@ def admin_import(request):
                     so_lit_nhap=so_lit,
                     thanh_tien=so_lit * 22000
                 )
-                messages.success(request, f"Đã nhập {so_lit:,.0f} lít vào {bon.ten_bon}.")
+
+                # 3. TỰ ĐỘNG TÌM VÀ ĐÓNG YÊU CẦU CỦA TRẠM NÀY (Nếu có)
+                from .models import YeuCauNhapHang
+                YeuCauNhapHang.objects.filter(
+                    tram=bon.tram,
+                    loai_nhien_lieu=bon.loai_nhien_lieu,
+                    trang_thai='cho_duyet'
+                ).update(trang_thai='da_duyet')
+
+                messages.success(request, f"Đã nhập {so_lit:,.0f} lít vào {bon.ten_bon}. Yêu cầu của trạm (nếu có) đã được tự động phê duyệt!")
                 return redirect('admin_dashboard')
         except Exception as e:
             messages.error(request, f"Lỗi nhập liệu: {e}")
 
     # ========================================================
-    # ĐÓNG GÓI DỮ LIỆU SẠCH SẼ BẰNG JSON ĐỂ TRÁNH LỖI JAVASCRIPT
+    # LẤY DANH SÁCH YÊU CẦU ĐỂ HIỂN THỊ
     # ========================================================
+    from .models import YeuCauNhapHang
+    ds_yeu_cau = YeuCauNhapHang.objects.filter(trang_thai='cho_duyet').order_by('-thoi_gian')
+
     ds_ncc = NhaCungCap.objects.all()
     ds_bon = BonChua.objects.select_related('tram').all()
 
-    # 1. Đóng gói Kho (Nhà cung cấp)
     ncc_list = [{
-        'id': n.id, 
-        'name': n.ten_ncc, 
-        'lat': float(n.latitude or 0), 
-        'lng': float(n.longitude or 0), 
-        'address': n.dia_chi
+        'id': n.id, 'name': n.ten_ncc, 'lat': float(n.latitude or 0), 'lng': float(n.longitude or 0), 'address': n.dia_chi
     } for n in ds_ncc]
 
-    # 2. Đóng gói Trạm Xăng và Bồn Chứa
     tank_list = []
     station_dict = {}
 
     for b in ds_bon:
         phan_tram = round((b.muc_hien_tai / b.suc_chua_toi_da) * 100, 1) if b.suc_chua_toi_da > 0 else 0
-        
-        # Danh sách bồn
         tank_list.append({
-            'id': b.id,
-            'ten_bon': b.ten_bon,
-            'loai': b.get_loai_nhien_lieu_display(),
-            'muc_hien_tai': float(b.muc_hien_tai),
-            'suc_chua': float(b.suc_chua_toi_da),
-            'phan_tram': phan_tram,
-            'tram_id': b.tram.id
+            'id': b.id, 'ten_bon': b.ten_bon, 'loai': b.get_loai_nhien_lieu_display(),
+            'muc_hien_tai': float(b.muc_hien_tai), 'suc_chua': float(b.suc_chua_toi_da),
+            'phan_tram': phan_tram, 'tram_id': b.tram.id
         })
-        
-        # Lọc ra danh sách trạm độc nhất
         if b.tram.id not in station_dict:
-            station_dict[b.tram.id] = {
-                'id': b.tram.id,
-                'name': b.tram.ten_tram,
-                'lat': float(b.tram.latitude or 0),
-                'lng': float(b.tram.longitude or 0)
-            }
+            station_dict[b.tram.id] = {'id': b.tram.id, 'name': b.tram.ten_tram, 'lat': float(b.tram.latitude or 0), 'lng': float(b.tram.longitude or 0)}
 
     context = {
-        'ds_ncc': ds_ncc,
-        # Truyền JSON thẳng sang HTML
-        'ncc_json': json.dumps(ncc_list),
-        'tank_json': json.dumps(tank_list),
-        'station_json': json.dumps(list(station_dict.values())),
+        'ds_ncc': ds_ncc, 'ncc_json': json.dumps(ncc_list), 'tank_json': json.dumps(tank_list),
+        'station_json': json.dumps(list(station_dict.values())), 'ds_yeu_cau': ds_yeu_cau,
     }
     return render(request, 'admin_import.html', context)
-
 
 @login_required
 def admin_add_station(request):
@@ -236,7 +231,6 @@ def admin_add_station(request):
             lat = request.POST.get('lat')
             lng = request.POST.get('lng')
 
-            # 1. Tạo Trạm Xăng mới
             tram_moi = TramXang.objects.create(
                 ten_tram=ten_tram,
                 dia_chi=dia_chi,
@@ -244,7 +238,6 @@ def admin_add_station(request):
                 longitude=float(lng)
             )
 
-            # 2. Tự động khởi tạo 3 Bồn chứa rỗng (0 Lít) cho trạm mới này
             BonChua.objects.create(tram=tram_moi, ten_bon="Bồn A95", loai_nhien_lieu='A95', suc_chua_toi_da=15000, muc_hien_tai=0)
             BonChua.objects.create(tram=tram_moi, ten_bon="Bồn E5", loai_nhien_lieu='E5', suc_chua_toi_da=10000, muc_hien_tai=0)
             BonChua.objects.create(tram=tram_moi, ten_bon="Bồn DO", loai_nhien_lieu='DO', suc_chua_toi_da=20000, muc_hien_tai=0)
@@ -257,60 +250,81 @@ def admin_add_station(request):
 
     return render(request, 'admin_add_station.html')
 
+
 # ==========================================
 # 3. KHU VỰC NHÂN VIÊN (STAFF POS)
 # ==========================================
 
 @login_required
 def staff_pos(request):
+    user = request.user
+    
+    if user.role == 'admin':
+        return redirect('admin_dashboard')
+
+    if not user.tram_xang:
+        messages.error(request, "Tài khoản của bạn chưa được phân công về Trạm Xăng nào. Vui lòng liên hệ Admin!")
+        return redirect('login')
+
+    tram_cua_toi = user.tram_xang
     today = timezone.now().date()
-    lich_su = HoaDon.objects.filter(
-        nhan_vien=request.user,
-        thoi_gian__date=today
-    ).order_by('-thoi_gian')[:10]
-    return render(request, 'staff_pos.html', {'lich_su_ban': lich_su})
+
+    ds_bon = BonChua.objects.filter(tram=tram_cua_toi)
+
+    if user.role == 'tram_truong':
+        lich_su = HoaDon.objects.filter(nhan_vien__tram_xang=tram_cua_toi, thoi_gian__date=today).order_by('-thoi_gian')[:20]
+    else:
+        lich_su = HoaDon.objects.filter(nhan_vien=user, thoi_gian__date=today).order_by('-thoi_gian')[:10]
+
+    context = {
+        'tram': tram_cua_toi,
+        'ds_bon': ds_bon,
+        'lich_su_ban': lich_su,
+    }
+    return render(request, 'staff_pos.html', context)
 
 
 @login_required
 def xu_ly_ban_hang(request):
     if request.method == 'POST':
+        if not request.user.tram_xang:
+            messages.error(request, "Lỗi bảo mật: Bạn không thuộc trạm xăng nào!")
+            return redirect('staff_pos')
+
         try:
             loai_nl = request.POST.get('loai_nhien_lieu')
-            so_tien_str = request.POST.get('so_tien')
-            
-            if not so_tien_str:
-                messages.error(request, "Vui lòng nhập số tiền!")
-                return redirect('staff_pos')
-                
-            so_tien = float(so_tien_str)
+            so_tien = float(request.POST.get('so_tien'))
             bang_gia = {'A95': 24500, 'E5': 23500, 'DO': 21000}
             don_gia = bang_gia.get(loai_nl, 20000)
             so_lit = so_tien / don_gia
             
-            bon = BonChua.objects.filter(loai_nhien_lieu=loai_nl).first()
-            if bon:
-                if bon.muc_hien_tai >= so_lit:
-                    bon.muc_hien_tai -= so_lit
-                    bon.save()
-                    hd = HoaDon.objects.create(
-                        ma_hd=f"HD-{str(uuid.uuid4())[:8].upper()}",
-                        nhan_vien=request.user,
-                        tong_tien=so_tien
-                    )
-                    ChiTietHoaDon.objects.create(
-                        hoa_don=hd,
-                        ten_mat_hang=f"Xăng {loai_nl}",
-                        so_luong=so_lit,
-                        don_gia=don_gia,
-                        thanh_tien=so_tien
-                    )
-                    messages.success(request, f"Đã bơm {so_lit:.2f} lít {loai_nl}. Thu {so_tien:,.0f}đ")
-                else:
-                    messages.error(request, f"HẾT HÀNG! Bồn {loai_nl} chỉ còn {bon.muc_hien_tai:.1f} lít.")
+            bon = BonChua.objects.filter(tram=request.user.tram_xang, loai_nhien_lieu=loai_nl).first()
+            
+            if bon and bon.muc_hien_tai >= so_lit:
+                bon.muc_hien_tai -= so_lit
+                bon.save()
+                
+                ma_hd_moi = f"HD-{timezone.now().strftime('%y%m%d%H%M%S')}-{request.user.id}"
+                hd = HoaDon.objects.create(
+                    ma_hd=ma_hd_moi,
+                    nhan_vien=request.user,
+                    tong_tien=so_tien
+                )
+                ChiTietHoaDon.objects.create(
+                    hoa_don=hd,
+                    ten_mat_hang=f"Nhiên liệu {loai_nl}",
+                    so_luong=so_lit,
+                    don_gia=don_gia,
+                    thanh_tien=so_tien
+                )
+                
+                messages.success(request, f"Đã xuất {so_lit:.2f}L {loai_nl} từ {request.user.tram_xang.ten_tram}")
             else:
-                messages.error(request, f"Lỗi: Không tìm thấy bồn chứa {loai_nl}!")
-        except ValueError:
-            messages.error(request, "Số tiền nhập vào không hợp lệ!")
+                messages.error(request, "Trạm của bạn đã hết loại nhiên liệu này!")
+                
+        except Exception as e:
+            messages.error(request, "Có lỗi xảy ra!")
+            
     return redirect('staff_pos')
 
 
@@ -422,6 +436,10 @@ def trang_san_pham(request):
 # ==========================================
 
 def tao_du_lieu_mau(request):
+    # CHỈ DÀNH CHO ADMIN
+    if request.user.role != 'admin':
+        return redirect('trang_chu')
+
     PhieuNhap.objects.all().delete()
     ChiTietHoaDon.objects.all().delete()
     HoaDon.objects.all().delete()
@@ -479,38 +497,30 @@ def tao_du_lieu_mau(request):
     SanPham.objects.create(danh_muc=dm1, ten_sp="Castrol Power 1", gia_tham_khao=120000, anh_sp="https://cf.shopee.vn/file/49a6224168e3708304f5533139855584", mo_ta="Dầu nhớt tổng hợp toàn phần")
     SanPham.objects.create(danh_muc=dm2, ten_sp="Nước làm mát", gia_tham_khao=50000, anh_sp="https://bizweb.dktcdn.net/100/416/542/products/nuoc-lam-mat-dong-co-o-to-xe-may-mau-xanh-blue-fobe-super-coolant-500ml-lon-p523a1.jpg", mo_ta="Giải nhiệt động cơ")
 
-# ===================================================================
-    # 5. TẠO DỮ LIỆU HÓA ĐƠN LỊCH SỬ TRONG 365 NGÀY QUA (MỚI THÊM)
+    # ===================================================================
+    # 5. TẠO DỮ LIỆU HÓA ĐƠN LỊCH SỬ TRONG 365 NGÀY QUA
     # ===================================================================
     now = timezone.now()
     bang_gia = {'A95': 24500, 'E5': 23500, 'DO': 21000}
     loai_list = ['A95', 'E5', 'DO']
     
-    # Lặp qua từng ngày trong 365 ngày qua
     for i in range(365):
         fake_date = now - timedelta(days=i)
-        
-        # Random tạo từ 2 đến 6 hóa đơn mỗi ngày (Tạo tính dao động thực tế)
         so_khach_trong_ngay = random.randint(2, 6)
         
         for j in range(so_khach_trong_ngay):
             loai_nl = random.choice(loai_list)
             don_gia = bang_gia[loai_nl]
-            # Random khách đổ từ 20 Lít đến 150 Lít
             so_lit = random.uniform(20, 150)
             tong_tien = so_lit * don_gia
             
-            # 1. Tạo Hóa Đơn
             hd = HoaDon.objects.create(
                 ma_hd=f"HD-{str(uuid.uuid4())[:8].upper()}",
-                nhan_vien=request.user,  # Gán cho tài khoản admin hiện tại
+                nhan_vien=request.user, 
                 tong_tien=tong_tien
             )
-            # MẸO QUAN TRỌNG: Cập nhật lại thời gian bằng hàm update() 
-            # để lách qua thuộc tính auto_now_add của Django
             HoaDon.objects.filter(id=hd.id).update(thoi_gian=fake_date)
             
-            # 2. Tạo Chi Tiết Hóa Đơn
             ChiTietHoaDon.objects.create(
                 hoa_don=hd,
                 ten_mat_hang=f"Xăng {loai_nl}",
@@ -518,6 +528,109 @@ def tao_du_lieu_mau(request):
                 don_gia=don_gia,
                 thanh_tien=tong_tien
             )
-            
-    messages.success(request, "Đã khởi tạo 15 Trạm Xăng, 4 Kho hàng và dữ liệu mẫu thành công!")
+
+   # ===================================================================
+    # 6. TẠO TÀI KHOẢN NHÂN VIÊN CHO 3 TRẠM XĂNG ĐỂ TEST PHÂN QUYỀN
+    # ===================================================================
+    cac_tram = TramXang.objects.all()
+
+    if cac_tram.count() >= 3:
+        # Xóa các tài khoản cũ để không bị lỗi trùng lặp khi bấm Reset nhiều lần
+        User.objects.filter(username__in=[
+            'truongtram1', 'nhanvien1',
+            'truongtram2', 'nhanvien2',
+            'truongtram3', 'nhanvien3'
+        ]).delete()
+
+        # --- TRẠM SỐ 1 ---
+        tram_1 = cac_tram[0]
+        User.objects.create_user(username='truongtram1', password='123', full_name='Trưởng Trạm Một', phone='0909111001', role='tram_truong', tram_xang=tram_1)
+        User.objects.create_user(username='nhanvien1', password='123', full_name='Nhân Viên Một', phone='0909111002', role='staff', tram_xang=tram_1)
+
+        # --- TRẠM SỐ 2 ---
+        tram_2 = cac_tram[1]
+        User.objects.create_user(username='truongtram2', password='123', full_name='Trưởng Trạm Hai', phone='0909222001', role='tram_truong', tram_xang=tram_2)
+        User.objects.create_user(username='nhanvien2', password='123', full_name='Nhân Viên Hai', phone='0909222002', role='staff', tram_xang=tram_2)
+
+        # --- TRẠM SỐ 3 ---
+        tram_3 = cac_tram[2]
+        User.objects.create_user(username='truongtram3', password='123', full_name='Trưởng Trạm Ba', phone='0909333001', role='tram_truong', tram_xang=tram_3)
+        User.objects.create_user(username='nhanvien3', password='123', full_name='Nhân Viên Ba', phone='0909333002', role='staff', tram_xang=tram_3)
+
+    # ĐÂY LÀ DÒNG BÁO THÀNH CÔNG VÀ CHUYỂN TRANG CUỐI CÙNG (CỰC KỲ QUAN TRỌNG)
+    messages.success(request, "Đã khởi tạo 15 Trạm Xăng, 4 Kho hàng, dữ liệu mẫu và 6 Tài khoản nhân viên test thành công!")
     return redirect('admin_dashboard')
+
+@login_required
+def bao_cao_tram(request):
+    user = request.user
+    
+    # Chỉ Trạm trưởng mới được xem
+    if user.role != 'tram_truong':
+        messages.error(request, "Lỗi bảo mật: Chỉ Cửa hàng trưởng mới có quyền xem Báo cáo Trạm!")
+        return redirect('staff_pos')
+
+    tram = user.tram_xang
+    if not tram:
+        messages.error(request, "Tài khoản của bạn chưa gắn với Trạm nào!")
+        return redirect('staff_pos')
+
+    today = timezone.now().date()
+    
+    # 1. Thống kê Doanh thu & Sản lượng của TẤT CẢ nhân viên trong trạm (Hôm nay)
+    hds_hom_nay = HoaDon.objects.filter(nhan_vien__tram_xang=tram, thoi_gian__date=today)
+    doanh_thu_hom_nay = hds_hom_nay.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0
+    so_gd_hom_nay = hds_hom_nay.count()
+    
+    san_luong_hom_nay = ChiTietHoaDon.objects.filter(hoa_don__in=hds_hom_nay).aggregate(Sum('so_luong'))['so_luong__sum'] or 0
+
+    # 2. Thống kê Tồn kho hiện tại của Trạm
+    ds_bon = BonChua.objects.filter(tram=tram)
+
+    # 3. Danh sách nhân viên và doanh thu từng người trong ngày
+    doanh_thu_nhan_vien = HoaDon.objects.filter(
+        nhan_vien__tram_xang=tram, thoi_gian__date=today
+    ).values('nhan_vien__username', 'nhan_vien__full_name').annotate(
+        tong_ban=Sum('tong_tien'),
+        so_don=Count('id')
+    ).order_by('-tong_ban')
+
+    context = {
+        'tram': tram,
+        'ngay_bao_cao': timezone.now(),
+        'doanh_thu_hom_nay': doanh_thu_hom_nay,
+        'so_gd_hom_nay': so_gd_hom_nay,
+        'san_luong_hom_nay': san_luong_hom_nay,
+        'ds_bon': ds_bon,
+        'doanh_thu_nhan_vien': doanh_thu_nhan_vien,
+    }
+    return render(request, 'bao_cao_tram.html', context)
+
+# --- LOGIC GỬI VÀ DUYỆT YÊU CẦU NHẬP HÀNG ---
+@login_required
+def tao_yeu_cau_nhap(request):
+    if request.method == 'POST' and request.user.role == 'tram_truong':
+        loai_nl = request.POST.get('loai_nl')
+        so_luong = request.POST.get('so_luong')
+        ghi_chu = request.POST.get('ghi_chu', '')
+        
+        from .models import YeuCauNhapHang
+        YeuCauNhapHang.objects.create(
+            tram=request.user.tram_xang,
+            nguoi_yeu_cau=request.user,
+            loai_nhien_lieu=loai_nl,
+            so_luong=so_luong,
+            ghi_chu=ghi_chu
+        )
+        messages.success(request, f"Đã gửi yêu cầu cấp {so_luong}L {loai_nl} lên Giám đốc thành công!")
+    return redirect('bao_cao_tram')
+
+@login_required
+def duyet_yeu_cau(request, req_id):
+    if request.user.role == 'admin':
+        from .models import YeuCauNhapHang
+        yeu_cau = YeuCauNhapHang.objects.get(id=req_id)
+        yeu_cau.trang_thai = 'da_duyet'
+        yeu_cau.save()
+        messages.success(request, f"Đã duyệt lệnh xuất hàng cho {yeu_cau.tram.ten_tram}! Vui lòng lập lộ trình GIS.")
+    return redirect('admin_import')

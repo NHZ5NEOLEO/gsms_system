@@ -26,4 +26,7 @@ urlpatterns = [
     path('tin-tuc/', views.trang_tin_tuc, name='tin_tuc'),
     path('san-pham/', views.trang_san_pham, name='san_pham'),
     path('admin-portal/them-tram/', views.admin_add_station, name='admin_add_station'),
+    path('pos/bao-cao-tram/', views.bao_cao_tram, name='bao_cao_tram'),
+    path('tao-yeu-cau-nhap/', views.tao_yeu_cau_nhap, name='tao_yeu_cau_nhap'),
+    path('duyet-yeu-cau/<int:req_id>/', views.duyet_yeu_cau, name='duyet_yeu_cau'),
 ]
