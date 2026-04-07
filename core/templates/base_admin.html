@@ -90,6 +90,11 @@
                             <i class="fas fa-newspaper text-white"></i> Quản lý Tin Tức
                         </a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link admin-nav-link {% if 'banners' in request.path %}active{% endif %}" href="{% url 'admin_banners' %}">
+                            <i class="fas fa-images text-white"></i> Quản lý Banner
+                        </a>
+                    </li>
                     <li class="nav-item ms-lg-2 ps-lg-2 border-start border-light border-opacity-25 d-none d-lg-block">
                         <a class="nav-link admin-nav-link opacity-75" href="{% url 'trang_chu' %}">
                             <i class="fas fa-globe"></i> Xem Trang Khách

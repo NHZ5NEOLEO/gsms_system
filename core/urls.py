@@ -39,4 +39,9 @@ urlpatterns = [
     path('quan-ly/tin-tuc/them/', views.admin_tin_tuc_form, name='admin_them_tin_tuc'),
     path('quan-ly/tin-tuc/sua/<int:tin_id>/', views.admin_tin_tuc_form, name='admin_sua_tin_tuc'),
     path('quan-ly/tin-tuc/xoa/<int:tin_id>/', views.admin_xoa_tin_tuc, name='admin_xoa_tin_tuc'),
+    # 5. Quản lý Banner Trang chủ
+    path('quan-ly/banners/', views.admin_banners, name='admin_banners'),
+    path('quan-ly/banners/them/', views.admin_banner_form, name='admin_them_banner'),
+    path('quan-ly/banners/sua/<int:banner_id>/', views.admin_banner_form, name='admin_sua_banner'),
+    path('quan-ly/banners/xoa/<int:banner_id>/', views.admin_xoa_banner, name='admin_xoa_banner'),
 ]

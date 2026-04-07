@@ -5,7 +5,9 @@ import random
 import string
 import logging
 from datetime import timedelta
+import base64
 
+from django.core.files.base import ContentFile
 from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout
 from django.contrib import messages
@@ -410,6 +412,62 @@ def admin_xoa_tin_tuc(request, tin_id):
         tin.delete()
         messages.success(request, "Đã xóa bài viết!")
     return redirect('admin_tin_tuc')
+
+@login_required
+def admin_banners(request):
+    if request.user.role != 'admin' and not request.user.is_superuser:
+        return redirect('trang_chu')
+    ds_banner = BannerTrangChu.objects.all().order_by('-id')
+    return render(request, 'admin_banners.html', {'ds_banner': ds_banner})
+
+@login_required
+def admin_banner_form(request, banner_id=None):
+    if request.user.role != 'admin' and not request.user.is_superuser:
+        return redirect('trang_chu')
+
+    banner = get_object_or_404(BannerTrangChu, id=banner_id) if banner_id else None
+
+    if request.method == 'POST':
+        tieu_de = request.POST.get('tieu_de_chinh', '')
+        tieu_phu = request.POST.get('tieu_de_phu', '')
+        chien_dich = request.POST.get('ten_chien_dich')
+        hien_thi = request.POST.get('dang_hien_thi') == 'on'
+        
+        # Bắt dữ liệu ảnh đã cắt (Base64)
+        cropped_data = request.POST.get('cropped_image_base64')
+
+        if not banner:
+            banner = BannerTrangChu()
+
+        banner.tieu_de_chinh = tieu_de
+        banner.tieu_de_phu = tieu_phu
+        banner.ten_chien_dich = chien_dich
+        banner.dang_hien_thi = hien_thi
+
+        # Xử lý lưu ảnh
+        if cropped_data:
+            format, imgstr = cropped_data.split(';base64,')
+            ext = format.split('/')[-1]
+            file_name = f"banner_{uuid.uuid4().hex[:8]}.{ext}"
+            banner.anh_banner = ContentFile(base64.b64decode(imgstr), name=file_name)
+        else:
+            file_raw = request.FILES.get('anh_banner')
+            if file_raw:
+                banner.anh_banner = file_raw
+
+        banner.save()
+        messages.success(request, "Đã cập nhật Banner thành công!")
+        return redirect('admin_banners')
+
+    return render(request, 'admin_banner_form.html', {'banner': banner})
+
+@login_required
+def admin_xoa_banner(request, banner_id):
+    if request.user.role == 'admin' or request.user.is_superuser:
+        banner = get_object_or_404(BannerTrangChu, id=banner_id)
+        banner.delete()
+        messages.success(request, "Đã xóa Banner!")
+    return redirect('admin_banners')
 # ==========================================
 # 3. KHU VỰC NHÂN VIÊN (STAFF POS)
 # ==========================================
