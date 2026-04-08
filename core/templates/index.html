@@ -26,9 +26,9 @@
     }
     .text-eco { color: #0dcaf0 !important; }
 
-    /* CSS MỚI: Dành cho Bảng Giá Xăng Trượt (Marquee) */
+    /* CSS: Dành cho Bảng Giá Xăng Trượt (Marquee) */
     .price-marquee {
-        background-color: #0f4c81; /* Xanh sậm Tập đoàn */
+        background-color: #0f4c81; 
         color: white;
         padding: 10px 0;
         font-weight: bold;
@@ -39,34 +39,47 @@
         margin-right: 40px;
     }
     .price-value { color: #ffc107; font-size: 1.1rem; }
+
+    /* CSS MỚI: Dành cho Tin Tức Trang Chủ */
+    .home-news-card {
+        border-radius: 16px;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+    .home-news-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 30px rgba(0,0,0,0.1) !important;
+    }
+    .home-news-img {
+        transition: transform 0.5s ease;
+    }
+    .home-news-card:hover .home-news-img {
+        transform: scale(1.05);
+    }
 </style>
 
-{% if banner %}
-    <div class="container-fluid p-0 mb-4 position-relative overflow-hidden" style="height: 500px;">
-        <img src="{{ banner.anh_banner.url }}" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover; z-index: 1;" alt="{{ banner.ten_chien_dich }}">
-        <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(135deg, rgba(15, 76, 129, 0.8) 0%, rgba(0, 0, 0, 0.3) 100%); z-index: 2;"></div>
-        <div class="container h-100 position-relative z-3 d-flex align-items-center justify-content-center text-center">
-            <div class="text-white animate__animated animate__fadeInUp">
-                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill mb-3 fw-bold tracking-wider shadow-sm">{{ banner.ten_chien_dich|upper }}</span>
-                <h1 class="display-4 fw-bold mb-3 text-uppercase" style="text-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
-                    {{ banner.tieu_de_chinh|default:"GSMS PETROLEUM" }}
-                </h1>
-                <p class="lead opacity-75 mb-4 fs-5">{{ banner.tieu_de_phu|default:"Năng lượng cho tương lai bền vững." }}</p>
-                <button onclick="timTramGanNhat(); document.getElementById('gis-section').scrollIntoView({behavior: 'smooth'});" class="btn btn-primary btn-lg rounded-pill shadow-lg px-4 fw-bold">
-                    <i class="fas fa-map-marker-alt me-2"></i> TÌM TRẠM QUANH TÔI
-                </button>
-            </div>
+{% load static %} 
+<div class="container-fluid p-0 mb-4 position-relative overflow-hidden" style="height: 500px;">
+    
+    <img src="{% static 'images/banner_chinh.jpg' %}" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover; z-index: 1;" alt="GSMS Banner">
+    
+    <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(135deg, rgba(15, 76, 129, 0.8) 0%, rgba(0, 0, 0, 0.3) 100%); z-index: 2;"></div>
+    
+    <div class="container h-100 position-relative z-3 d-flex align-items-center justify-content-center text-center">
+        <div class="text-white animate__animated animate__fadeInUp">
+            <span class="badge bg-warning text-dark px-3 py-2 rounded-pill mb-3 fw-bold tracking-wider shadow-sm">GSMS GROUP</span>
+            
+            <h1 class="display-4 fw-bold mb-3 text-uppercase" style="text-shadow: 2px 2px 10px rgba(0,0,0,0.5);">
+                TẬP ĐOÀN XĂNG DẦU GSMS
+            </h1>
+            <p class="lead opacity-75 mb-4 fs-5">Năng lượng xanh cho tương lai bền vững.</p>
+            
+            <button onclick="timTramGanNhat(); document.getElementById('gis-section').scrollIntoView({behavior: 'smooth'});" class="btn btn-primary btn-lg rounded-pill shadow-lg px-4 fw-bold">
+                <i class="fas fa-map-marker-alt me-2"></i> TÌM TRẠM QUANH TÔI
+            </button>
         </div>
     </div>
-{% else %}
-    <section class="mb-4 text-center text-white d-flex align-items-center justify-content-center" style="height: 500px; background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)), url('https://petrolimex.com.vn/public/userfiles/images/2021/T6/18062021_KV2_CH42_01.jpg'); background-size: cover;">
-        <div class="container">
-            <h1 class="display-4 fw-bold">GSMS GROUP - VỮNG BƯỚC VƯƠN XA</h1>
-            <p class="lead">Hệ thống quản lý và phân phối xăng dầu hàng đầu Việt Nam</p>
-            <button onclick="timTramGanNhat()" class="btn btn-primary btn-lg mt-3 shadow rounded-pill"><i class="fas fa-map-marker-alt"></i> TÌM QUANH TÔI</button>
-        </div>
-    </section>
-{% endif %}
+</div>
 
 <div class="container-fluid p-0 mb-5 border-bottom border-warning border-3">
     <div class="price-marquee">
@@ -143,40 +156,69 @@
 
 <section id="tin-tuc" class="bg-light py-5">
     <div class="container">
-        <h2 class="text-center text-primary fw-bold mb-4">TIN TỨC HOẠT ĐỘNG</h2>
-        <div class="row">
-            {% for tin in tin_tuc %}
-            <div class="col-md-4 mb-3">
-                <div class="card h-100 shadow-sm border-0 transition-hover">
-                    {% if tin.anh_bia %}
-                        <img src="{{ tin.anh_bia.url }}" class="card-img-top" style="height: 200px; object-fit: cover;">
-                    {% else %}
-                        <img src="https://via.placeholder.com/400x200?text=No+Image" class="card-img-top" style="height: 200px; object-fit: cover;">
-                    {% endif %}
-                    
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-dark">{{ tin.tieu_de }}</h5>
-                        <p class="card-text small text-muted">{{ tin.tom_tat|truncatechars:100 }}</p>
+        <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
+            <div>
+                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill mb-2 fw-bold shadow-sm">CẬP NHẬT MỚI</span>
+                <h2 class="fw-bold text-dark mb-0">Tin Tức & Sự Kiện GSMS</h2>
+            </div>
+            <a href="{% url 'tin_tuc' %}" class="btn btn-outline-primary fw-bold rounded-pill px-4 shadow-sm hover-btn">
+                Xem Tất Cả <i class="fas fa-arrow-right ms-1"></i>
+            </a>
+        </div>
+
+        <div class="row g-4">
+            {% for tin in tin_moi_nhat %}
+            <div class="col-md-4">
+                <div class="card home-news-card h-100 bg-white shadow-sm overflow-hidden">
+                    <div class="position-relative overflow-hidden">
+                        <a href="{% url 'chi_tiet_tin_tuc' tin.id %}">
+                            {% if tin.anh_bia %}
+                                <img src="{{ tin.anh_bia.url }}" class="w-100 home-news-img" style="height: 220px; object-fit: cover;" alt="{{ tin.tieu_de }}">
+                            {% else %}
+                                <img src="https://via.placeholder.com/400x220/e9ecef/6c757d?text=GSMS+News" class="w-100 home-news-img" style="height: 220px; object-fit: cover;">
+                            {% endif %}
+                        </a>
+                        
+                        <div class="position-absolute shadow-sm" style="top: 15px; right: 15px; background: rgba(255,255,255,0.95); padding: 8px 12px; border-radius: 12px; text-align: center; backdrop-filter: blur(4px);">
+                            <span class="d-block fw-bold" style="font-size: 1.3rem; color: #0f4c81; line-height: 1;">{{ tin.ngay_dang|date:"d" }}</span>
+                            <span class="d-block fw-bold" style="font-size: 0.7rem; color: #198754;">TH{{ tin.ngay_dang|date:"m" }}</span>
+                        </div>
                     </div>
-                    <div class="card-footer bg-white border-0 pb-3">
-                        <a href="#" class="btn btn-outline-primary btn-sm rounded-pill fw-bold">Đọc tiếp <i class="fas fa-arrow-right"></i></a>
+                    
+                    <div class="card-body p-4 d-flex flex-column">
+                        <h5 class="fw-bold mb-3" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">
+                            <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-dark text-decoration-none" onmouseover="this.style.color='#0d6efd'" onmouseout="this.style.color='#212529'">
+                                {{ tin.tieu_de }}
+                            </a>
+                        </h5>
+                        
+                        <p class="text-secondary small mb-4" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
+                            {{ tin.tom_tat|default:"Đang cập nhật tóm tắt..." }}
+                        </p>
+                        
+                        <div class="mt-auto d-flex justify-content-between align-items-center pt-3 border-top">
+                            <span class="small text-muted fw-bold"><i class="far fa-clock me-1"></i> {{ tin.ngay_dang|date:"d/m/Y" }}</span>
+                            <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-primary fw-bold text-decoration-none" style="font-size: 0.9rem;">
+                                Đọc tiếp <i class="fas fa-chevron-right ms-1" style="font-size: 0.8em;"></i>
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
             {% empty %}
-            <div class="col-12 text-center text-muted">
-                <p>Chưa có bản tin nào được cập nhật.</p>
+            <div class="col-12 text-center text-muted py-5">
+                <i class="fas fa-box-open fa-3x opacity-25 mb-3"></i>
+                <p>Hệ thống đang chuẩn bị tin tức mới. Vui lòng quay lại sau!</p>
             </div>
             {% endfor %}
         </div>
     </div>
 </section>
-
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
 <script>
-    // Toàn bộ code Javascript GIS của bạn nằm ở đây (Tui giữ nguyên 100% logic cũ của bạn vì nó chạy quá chuẩn rồi)
+    // TOÀN BỘ CODE JS GIỮ NGUYÊN HOÀN TOÀN
     var allStations = {{ tram_json|safe }};
     var map = L.map('gis-map').setView([10.762622, 106.660172], 12);
     var markersLayer = L.layerGroup().addTo(map);

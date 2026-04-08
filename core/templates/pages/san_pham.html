@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
-{% load humanize %} {% block content %}
+{% load humanize %} 
+
+{% block content %}
 <style>
     /* CSS Nâng cao cho E-Catalog */
     .hero-catalog {
@@ -122,17 +124,62 @@
                             </div>
                         </div>
 
-                        <div class="d-grid">
+                        <div class="d-grid gap-2">
                             <a href="tel:19008888" class="btn btn-outline-primary fw-bold rounded-pill py-2 hover-btn shadow-sm">
                                 <i class="fas fa-headset me-2"></i> NHẬN BÁO GIÁ SỈ
                             </a>
+                            
+                            <button type="button" class="btn btn-warning text-dark fw-bold rounded-pill py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#modalDanhGia_{{ sp.id }}">
+                                <i class="fas fa-star text-dark me-1"></i> VIẾT ĐÁNH GIÁ
+                            </button>
                         </div>
                     </div>
                 </div>
-                
             </div>
         </div>
-        
+
+        <div class="modal fade" id="modalDanhGia_{{ sp.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content border-0 shadow-lg rounded-4">
+                    <div class="modal-header bg-primary text-white border-0 py-3 rounded-top-4">
+                        <h5 class="modal-title fw-bold"><i class="fas fa-comment-dots me-2"></i> Đánh giá sản phẩm</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                    </div>
+                    <form method="POST" action="{% url 'gui_danh_gia' sp.id %}">
+                        {% csrf_token %}
+                        <div class="modal-body p-4 bg-light">
+                            <div class="text-center mb-4">
+                                <h6 class="fw-bold text-primary">{{ sp.ten_sp }}</h6>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="fw-bold text-secondary mb-2">Tên của bạn:</label>
+                                <input type="text" name="ten_khach_hang" class="form-control border-0 shadow-sm py-2" required placeholder="Nhập tên...">
+                            </div>
+                            <div class="mb-3">
+                                <label class="fw-bold text-secondary mb-2">Chất lượng sản phẩm:</label>
+                                <select name="so_sao" class="form-select border-0 shadow-sm py-2 text-warning fw-bold">
+                                    <option value="5">⭐⭐⭐⭐⭐ (Tuyệt vời)</option>
+                                    <option value="4">⭐⭐⭐⭐ (Rất tốt)</option>
+                                    <option value="3">⭐⭐⭐ (Bình thường)</option>
+                                    <option value="2">⭐⭐ (Kém)</option>
+                                    <option value="1">⭐ (Rất tệ)</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="fw-bold text-secondary mb-2">Cảm nhận của bạn:</label>
+                                <textarea name="noi_dung" class="form-control border-0 shadow-sm" rows="4" required placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này nhé..."></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer bg-white border-0 p-3 rounded-bottom-4">
+                            <button type="submit" class="btn btn-warning fw-bold w-100 py-3 shadow-sm fs-5 text-dark">
+                                <i class="fas fa-paper-plane me-2"></i> GỬI ĐÁNH GIÁ
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
         {% empty %}
         <div class="col-12 text-center py-5 my-5">
             <div class="bg-light rounded-circle d-inline-flex justify-content-center align-items-center mb-4" style="width: 120px; height: 120px;">

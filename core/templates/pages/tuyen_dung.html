@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<style>
+    .job-card { border-left: 5px solid #0d6efd; transition: 0.3s; }
+    .job-card:hover { transform: translateX(10px); background-color: #f8f9fa; }
+    .benefit-icon { font-size: 2.5rem; color: #198754; margin-bottom: 15px; }
+</style>
+
+<div class="bg-primary text-white py-5 text-center shadow-sm">
+    <div class="container py-4">
+        <h1 class="display-5 fw-bold mb-3">Gia Nhập Đội Ngũ GSMS</h1>
+        <p class="lead opacity-75">Nơi tạo dựng sự nghiệp vững chắc với môi trường làm việc chuyên nghiệp, đãi ngộ dẫn đầu ngành bán lẻ xăng dầu.</p>
+    </div>
+</div>
+
+<div class="container py-5 mt-4">
+    <div class="text-center mb-5">
+        <h3 class="fw-bold">Tại Sao Chọn Làm Việc Tại GSMS?</h3>
+        <div class="bg-success mx-auto mt-2 mb-4" style="height: 4px; width: 60px; border-radius: 2px;"></div>
+        <div class="row g-4 mt-3">
+            <div class="col-md-3">
+                <i class="fas fa-heartbeat benefit-icon"></i>
+                <h5 class="fw-bold">Bảo Hiểm Toàn Diện</h5>
+                <p class="text-muted small">Đóng BHXH 100% lương thực nhận. Gói bảo hiểm sức khỏe PTI cho gia đình.</p>
+            </div>
+            <div class="col-md-3">
+                <i class="fas fa-hand-holding-usd benefit-icon"></i>
+                <h5 class="fw-bold">Thu Nhập Hấp Dẫn</h5>
+                <p class="text-muted small">Lương cơ bản cao + Thưởng doanh số hàng tháng + Lương tháng 13, 14.</p>
+            </div>
+            <div class="col-md-3">
+                <i class="fas fa-graduation-cap benefit-icon"></i>
+                <h5 class="fw-bold">Đào Tạo Nội Bộ</h5>
+                <p class="text-muted small">Khóa huấn luyện PCCC, An toàn lao động và kỹ năng mềm miễn phí.</p>
+            </div>
+            <div class="col-md-3">
+                <i class="fas fa-chart-line benefit-icon"></i>
+                <h5 class="fw-bold">Lộ Trình Thăng Tiến</h5>
+                <p class="text-muted small">Ưu tiên bổ nhiệm Cửa hàng trưởng từ nguồn nhân viên bán hàng nội bộ.</p>
+            </div>
+        </div>
+    </div>
+
+    <hr class="my-5">
+
+    <h3 class="fw-bold mb-4"><i class="fas fa-briefcase text-primary me-2"></i> Vị Trí Đang Tuyển Dụng</h3>
+    
+    <div class="row g-4">
+        <div class="col-12">
+            <div class="card job-card shadow-sm">
+                <div class="card-body p-4 d-flex flex-column flex-md-row align-items-center justify-content-between">
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1">Cửa Hàng Trưởng Trạm Xăng</h4>
+                        <div class="text-muted small mb-2">
+                            <span class="me-3"><i class="fas fa-map-marker-alt text-danger"></i> TP. Hồ Chí Minh, Bình Dương</span>
+                            <span class="me-3"><i class="fas fa-clock text-warning"></i> Toàn thời gian</span>
+                            <span><i class="fas fa-money-bill-wave text-success"></i> 15 - 25 Triệu VNĐ</span>
+                        </div>
+                        <p class="mb-0 text-secondary">Quản lý doanh thu, xuất nhập tồn kho trạm. Đào tạo và quản lý ca trực cho nhân viên bán hàng. Yêu cầu kinh nghiệm 2 năm quản lý cửa hàng bán lẻ.</p>
+                    </div>
+                    <div class="mt-3 mt-md-0 ms-md-4">
+                        <button class="btn btn-primary rounded-pill px-4 fw-bold">Ứng Tuyển</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-12">
+            <div class="card job-card shadow-sm" style="border-left-color: #198754;">
+                <div class="card-body p-4 d-flex flex-column flex-md-row align-items-center justify-content-between">
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1">Nhân Viên Bơm Xăng (Hỗ Trợ Chỗ Ở)</h4>
+                        <div class="text-muted small mb-2">
+                            <span class="me-3"><i class="fas fa-map-marker-alt text-danger"></i> Toàn quốc</span>
+                            <span class="me-3"><i class="fas fa-clock text-warning"></i> Xoay ca 8 tiếng</span>
+                            <span><i class="fas fa-money-bill-wave text-success"></i> 8 - 12 Triệu VNĐ</span>
+                        </div>
+                        <p class="mb-0 text-secondary">Thực hiện thao tác bơm xăng, thu tiền. Vệ sinh khu vực trụ bơm. Không yêu cầu kinh nghiệm, được đào tạo từ A-Z. Có hỗ trợ chỗ ở miễn phí cho nhân viên.</p>
+                    </div>
+                    <div class="mt-3 mt-md-0 ms-md-4">
+                        <button class="btn btn-success rounded-pill px-4 fw-bold">Ứng Tuyển</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-12">
+            <div class="card job-card shadow-sm" style="border-left-color: #6c757d;">
+                <div class="card-body p-4 d-flex flex-column flex-md-row align-items-center justify-content-between">
+                    <div>
+                        <h4 class="fw-bold text-dark mb-1">Chuyên Viên Kế Toán Nội Bộ</h4>
+                        <div class="text-muted small mb-2">
+                            <span class="me-3"><i class="fas fa-map-marker-alt text-danger"></i> Trụ sở chính Tập đoàn</span>
+                            <span class="me-3"><i class="fas fa-clock text-warning"></i> Giờ hành chính</span>
+                            <span><i class="fas fa-money-bill-wave text-success"></i> 12 - 18 Triệu VNĐ</span>
+                        </div>
+                        <p class="mb-0 text-secondary">Đối soát chứng từ hóa đơn các trạm. Xử lý công nợ khách hàng B2B. Yêu cầu tốt nghiệp Đại học chuyên ngành Kế toán/Tài chính, rành Excel & phần mềm ERP.</p>
+                    </div>
+                    <div class="mt-3 mt-md-0 ms-md-4">
+                        <button class="btn btn-secondary rounded-pill px-4 fw-bold">Ứng Tuyển</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

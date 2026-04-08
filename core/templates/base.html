@@ -13,20 +13,27 @@
        ======================================================= */
     .navbar-nav .nav-link {
         transition: all 0.3s ease;
-        border-radius: 8px;      /* Bo tròn các góc */
-        padding: 8px 16px !important;
-        margin: 0 4px;
-        font-weight: 600;        /* Chữ bình thường hơi đậm */
+        border-radius: 8px;      
+        padding: 6px 10px !important; /* Đã thu gọn để chống tràn */
+        margin: 0 2px;
+        font-weight: 600;       
+        font-size: 0.95rem;           /* Chữ nhỏ lại 1 tẹo cho sang trọng */
+        white-space: nowrap;          /* Tuyệt đối không rớt xuống 2 dòng */
     }
     
-    /* Khi rê chuột hoặc đang ở trang đó (Active) của MENU CHÍNH */
     .navbar-nav .nav-link:hover, 
     .navbar-nav .nav-link.active {
-        color: #ffffff !important;       /* Chữ chuyển sang TRẮNG */
-        background-color: #0d6efd;       /* Nền chuyển sang XANH PRIMARY */
-        font-weight: 800;                /* In đậm tối đa (Bold) */
-        transform: translateY(-3px);     /* Hiệu ứng nẩy lên */
-        box-shadow: 0 6px 12px rgba(13, 110, 253, 0.3); /* Đổ bóng phát sáng */
+        color: #ffffff !important;       
+        background-color: #0d6efd;       
+        font-weight: 800;                
+        transform: translateY(-2px);     
+        box-shadow: 0 4px 8px rgba(13, 110, 253, 0.3); 
+    }
+
+    .navbar-brand {
+        margin-right: 2rem !important; 
+        font-size: 1.3rem;
+        letter-spacing: 0.5px;
     }
 
     /* =======================================================
@@ -34,23 +41,24 @@
        ======================================================= */
     .dropdown-menu {
         border-radius: 12px;
-        overflow: hidden; /* Cắt góc mượt cho các mục con */
+        overflow: hidden; 
         padding: 8px;
+        z-index: 1050; /* Đè lên mọi thứ bên dưới */
     }
     .dropdown-item {
         transition: all 0.2s ease;
         color: #495057;
         border-radius: 6px;
         margin-bottom: 2px;
+        font-size: 0.95rem;
     }
     
-    /* Khi rê chuột hoặc đang ở trang đó (Active) của MENU CON */
     .dropdown-item:hover, 
     .dropdown-item.active-menu {
-        color: #ffffff !important;       /* Chữ chuyển sang TRẮNG */
-        background-color: #0d6efd;       /* Nền chuyển sang XANH PRIMARY */
-        font-weight: 700;                /* In đậm (Bold) */
-        padding-left: 20px !important;   /* Thụt đầu dòng vào trong tạo điểm nhấn */
+        color: #ffffff !important;       
+        background-color: #0d6efd;       
+        font-weight: 700;                
+        padding-left: 15px !important;   
         box-shadow: 0 4px 8px rgba(13, 110, 253, 0.2);
     }
 
@@ -58,7 +66,7 @@
        3. CSS TÙY CHỈNH CHO FOOTER (CHÂN TRANG)
        ======================================================= */
     .site-footer {
-        background-color: #111827; /* Màu xanh đen sâu thẳm, sang trọng */
+        background-color: #111827; 
         color: #9ca3af;
         padding-top: 70px;
         font-family: 'Nunito', sans-serif;
@@ -133,7 +141,9 @@
     </style>
     {% block extra_css %}{% endblock %}
 </head>
-<body class="d-flex flex-column min-vh-100"> {# --- ĐÂY LÀ BLOCK NAVBAR --- #}
+<body class="d-flex flex-column min-vh-100">
+
+    {# --- ĐÂY LÀ BLOCK NAVBAR --- #}
     {% block navbar %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary sticky-top shadow-sm">
         <div class="container">
@@ -155,18 +165,12 @@
                         <a class="nav-link dropdown-toggle fw-bold {% if 'linh-vuc' in request.path %}active text-primary{% endif %}" href="#" role="button" data-bs-toggle="dropdown">
                             Lĩnh vực
                         </a>
-    
                         <ul class="dropdown-menu shadow border-0 mt-2">
                             <li><a class="dropdown-item py-2 {% if 'kinh-doanh-xang-dau' in request.path %}active-menu{% endif %}" href="{% url 'chi_tiet_linh_vuc' 'kinh-doanh-xang-dau' %}">Kinh doanh xăng dầu</a></li>
-        
                             <li><a class="dropdown-item py-2 {% if 'van-tai-xang-dau' in request.path %}active-menu{% endif %}" href="{% url 'chi_tiet_linh_vuc' 'van-tai-xang-dau' %}">Vận tải xăng dầu</a></li>
-        
                             <li><a class="dropdown-item py-2 {% if 'khi-hoa-long' in request.path %}active-menu{% endif %}" href="{% url 'chi_tiet_linh_vuc' 'khi-hoa-long' %}">Khí hóa lỏng (LPG)</a></li>
-        
                             <li><a class="dropdown-item py-2 {% if 'hoa-dau-dung-moi' in request.path %}active-menu{% endif %}" href="{% url 'chi_tiet_linh_vuc' 'hoa-dau-dung-moi' %}">Hóa dầu & Dung môi</a></li>
-        
                             <li><hr class="dropdown-divider"></li>
-        
                             <li><a class="dropdown-item py-2 {% if 'dich-vu-tai-chinh' in request.path %}active-menu{% endif %}" href="{% url 'chi_tiet_linh_vuc' 'dich-vu-tai-chinh' %}">Dịch vụ tài chính</a></li>
                         </ul>
                     </li>
@@ -178,21 +182,35 @@
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'san_pham' %}active text-white fw-bold{% else %}text-white-50{% endif %}" href="{% url 'san_pham' %}">Sản phẩm</a>
                     </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'doi_tac' %}active text-white fw-bold{% else %}text-white-50{% endif %}" href="{% url 'doi_tac' %}">
+                            <i class="fas fa-handshake me-1"></i> Đối Tác
+                        </a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.resolver_match.url_name == 'tuyen_dung' %}active text-white fw-bold{% else %}text-white-50{% endif %}" href="{% url 'tuyen_dung' %}">
+                            <i class="fas fa-user-tie me-1"></i> Tuyển Dụng
+                        </a>
+                    </li>
+
                     <li class="nav-item">
                         <a class="nav-link {% if request.resolver_match.url_name == 'lien_he' %}active text-white fw-bold{% else %}text-white-50{% endif %}" href="{% url 'lien_he' %}">Liên hệ</a>
                     </li>
                 </ul>
+                
                 <div class="d-flex align-items-center">
                     {% if user.is_authenticated %}
                     <span class="text-white me-3 d-none d-lg-block">Hi, {{ user.username }}</span>
     
                     {% if user.role == 'admin' or user.is_superuser %}
                     <a href="{% url 'admin_dashboard' %}" class="btn btn-warning btn-sm fw-bold me-2">
-                    <i class="fas fa-user-shield"></i> Dashboard Admin
+                        <i class="fas fa-user-shield"></i> Dashboard Admin
                     </a>
                     {% else %}
                     <a href="{% url 'staff_pos' %}" class="btn btn-success btn-sm fw-bold me-2">
-                    <i class="fas fa-cash-register"></i> Máy POS
+                        <i class="fas fa-cash-register"></i> Máy POS
                     </a>
                     {% endif %}
     
@@ -209,7 +227,8 @@
     {% endblock %}
     {# --- HẾT BLOCK NAVBAR --- #}
 
-    <div class="main-content flex-grow-1"> {% if messages %}
+    <div class="main-content flex-grow-1"> 
+        {% if messages %}
             <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 9999;">
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-lg border-0" role="alert">
@@ -220,7 +239,7 @@
             </div>
         {% endif %}
 
-        {# --- ĐÂY LÀ BLOCK CONTENT: Nội dung chính sẽ thay đổi theo từng trang --- #}
+        {# --- ĐÂY LÀ BLOCK CONTENT --- #}
         {% block content %}
         {% endblock %}
     </div>

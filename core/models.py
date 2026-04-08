@@ -231,3 +231,111 @@ class BannerTrangChu(models.Model):
             # Nếu cái này được chọn hiển thị, thì tìm và tắt hết các cái khác
             BannerTrangChu.objects.filter(dang_hien_thi=True).update(dang_hien_thi=False)
         super().save(*args, **kwargs)
+# ==========================================
+# 11. HỢP TÁC DOANH NGHIỆP (B2B / Nhượng quyền)
+# ==========================================
+class DoiTacB2B(models.Model):
+    TRANG_THAI_B2B = (
+        ('moi', 'Mới tiếp nhận'),
+        ('da_lien_he', 'Đã liên hệ tư vấn'),
+        ('dang_dam_phan', 'Đang đàm phán'),
+        ('thanh_cong', 'Ký hợp đồng thành công'),
+        ('that_bai', 'Hủy / Từ chối'),
+    )
+    ten_cong_ty = models.CharField(max_length=200, verbose_name="Tên Công Ty / Cá Nhân")
+    so_dien_thoai = models.CharField(max_length=15, verbose_name="Số điện thoại")
+    email = models.EmailField(blank=True, null=True, verbose_name="Email liên hệ")
+    nhu_cau = models.CharField(max_length=200, verbose_name="Nhu cầu hợp tác")
+    ghi_chu_admin = models.TextField(blank=True, null=True, verbose_name="Ghi chú của Admin")
+    ngay_gui = models.DateTimeField(auto_now_add=True)
+    trang_thai = models.CharField(max_length=20, choices=TRANG_THAI_B2B, default='moi', verbose_name="Trạng thái xử lý")
+
+    def __str__(self):
+        return f"{self.ten_cong_ty} - {self.nhu_cau}"
+    class Meta:
+        verbose_name = "Yêu cầu Hợp tác"
+        verbose_name_plural = "Quản lý Hợp tác B2B"
+
+
+# ==========================================
+# 12. HỒ SƠ TUYỂN DỤNG (Careers)
+# ==========================================
+class HoSoUngVien(models.Model):
+    TRANG_THAI_HS = (
+        ('moi', 'Hồ sơ mới'),
+        ('dang_xem', 'Đang xem xét'),
+        ('phong_van', 'Hẹn phỏng vấn'),
+        ('nhan_viec', 'Đã nhận việc'),
+        ('tu_choi', 'Không phù hợp'),
+    )
+    vi_tri_ung_tuyen = models.CharField(max_length=100, verbose_name="Vị trí ứng tuyển")
+    ho_ten = models.CharField(max_length=100, verbose_name="Họ và tên")
+    so_dien_thoai = models.CharField(max_length=15, verbose_name="Số điện thoại")
+    email = models.EmailField(blank=True, null=True)
+    file_cv = models.FileField(upload_to='cv_ung_vien/', verbose_name="File CV (PDF/Word)")
+    ngay_nop = models.DateTimeField(auto_now_add=True)
+    trang_thai = models.CharField(max_length=20, choices=TRANG_THAI_HS, default='moi', verbose_name="Trạng thái hồ sơ")
+
+    def __str__(self):
+        return f"{self.ho_ten} - Ứng tuyển: {self.vi_tri_ung_tuyen}"
+    class Meta:
+        verbose_name = "Hồ sơ Ứng viên"
+        verbose_name_plural = "Quản lý Tuyển dụng"
+
+
+# ==========================================
+# 13. LIÊN HỆ & GÓP Ý (Từ khách hàng)
+# ==========================================
+class LienHeGopY(models.Model):
+    ho_ten = models.CharField(max_length=100, verbose_name="Họ và tên khách hàng")
+    so_dien_thoai = models.CharField(max_length=15, verbose_name="Số điện thoại")
+    tieu_de = models.CharField(max_length=200, verbose_name="Tiêu đề")
+    noi_dung = models.TextField(verbose_name="Nội dung góp ý / thắc mắc")
+    ngay_gui = models.DateTimeField(auto_now_add=True)
+    da_xu_ly = models.BooleanField(default=False, verbose_name="Đã xử lý / Gọi lại?")
+
+    def __str__(self):
+        return f"[{'Đã xử lý' if self.da_xu_ly else 'MỚI'}] {self.ho_ten} - {self.tieu_de}"
+    class Meta:
+        verbose_name = "Liên hệ / Góp ý"
+        verbose_name_plural = "Quản lý Góp ý Khách hàng"
+# ==========================================
+# 14. CỬA HÀNG TIỆN LỢI (GSMS Mart)
+# ==========================================
+class DanhMucMart(models.Model):
+    ten_danh_muc = models.CharField(max_length=100, verbose_name="Tên Danh Mục (VD: Nước uống, Đồ ăn nhanh)")
+    
+    def __str__(self): 
+        return self.ten_danh_muc
+    class Meta:
+        verbose_name = "Danh mục Mart"
+        verbose_name_plural = "Danh mục Mart"
+
+class SanPhamMart(models.Model):
+    danh_muc = models.ForeignKey(DanhMucMart, on_delete=models.SET_NULL, null=True, verbose_name="Thuộc danh mục")
+    ten_san_pham = models.CharField(max_length=100, verbose_name="Tên sản phẩm")
+    gia_ban = models.FloatField(verbose_name="Giá bán (VNĐ)")
+    ton_kho = models.IntegerField(default=0, verbose_name="Số lượng tồn kho")
+    anh_san_pham = models.ImageField(upload_to='mart/', null=True, blank=True, verbose_name="Ảnh minh họa")
+
+    def __str__(self): 
+        return f"{self.ten_san_pham} - {self.gia_ban:,.0f}đ (Tồn: {self.ton_kho})"
+    class Meta:
+        verbose_name = "Sản phẩm Mart"
+        verbose_name_plural = "Sản phẩm Mart"
+# ==========================================
+# 15. ĐÁNH GIÁ SẢN PHẨM (Từ Khách Hàng)
+# ==========================================
+class DanhGiaSanPham(models.Model):
+    san_pham = models.ForeignKey(SanPham, on_delete=models.CASCADE, related_name='cac_danh_gia')
+    ten_khach_hang = models.CharField(max_length=100, verbose_name="Tên khách hàng")
+    so_sao = models.IntegerField(default=5, verbose_name="Số sao (1-5)")
+    noi_dung = models.TextField(verbose_name="Nội dung đánh giá")
+    ngay_gui = models.DateTimeField(auto_now_add=True)
+    da_duyet = models.BooleanField(default=False, verbose_name="Đã duyệt (Cho phép hiện lên Web)")
+
+    def __str__(self):
+        return f"{self.ten_khach_hang} - {self.san_pham.ten_sp} ({self.so_sao} Sao)"
+    class Meta:
+        verbose_name = "Đánh giá Sản phẩm"
+        verbose_name_plural = "Quản lý Đánh giá"

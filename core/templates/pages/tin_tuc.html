@@ -80,6 +80,10 @@
         display: inline-block;
         margin-bottom: 10px;
     }
+    
+    /* Style cho link ẩn trong thẻ ảnh và tiêu đề */
+    .img-link { display: block; overflow: hidden; }
+    .text-hover-primary:hover { color: #0d6efd !important; }
 </style>
 
 <div class="hero-news text-white text-center shadow-sm">
@@ -93,17 +97,38 @@
 </div>
 
 <div class="container py-5 mt-3">
+    
+    <div class="row mb-5 justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <form method="GET" action="{% url 'tin_tuc' %}" class="d-flex shadow-sm rounded-pill overflow-hidden bg-white border">
+                <input type="text" name="q" value="{{ tu_khoa }}" class="form-control border-0 px-4 py-3 shadow-none" placeholder="Nhập tên bài viết hoặc nội dung cần tìm...">
+                <button type="submit" class="btn btn-primary px-4 fw-bold border-0">
+                    <i class="fas fa-search me-1"></i> Tìm
+                </button>
+            </form>
+            
+            {% if tu_khoa %}
+            <div class="text-center mt-3 text-muted">
+                Tìm thấy <strong>{{ ds_tin.paginator.count }}</strong> kết quả cho: <span class="text-primary fw-bold">"{{ tu_khoa }}"</span>
+                <a href="{% url 'tin_tuc' %}" class="text-danger text-decoration-none ms-3 badge bg-light border"><i class="fas fa-times-circle"></i> Xóa bộ lọc</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
     <div class="row g-4">
         {% for tin in ds_tin %}
         <div class="col-md-6 col-lg-4">
             <div class="card news-card h-100 bg-white">
                 
                 <div class="img-zoom-wrapper position-relative">
-                    {% if tin.anh_bia %}
-                        <img src="{{ tin.anh_bia.url }}" class="w-100" style="height: 240px; object-fit: cover;" alt="{{ tin.tieu_de }}">
-                    {% else %}
-                        <img src="https://via.placeholder.com/400x240/e9ecef/6c757d?text=GSMS+News" class="w-100" style="height: 240px; object-fit: cover;" alt="No image">
-                    {% endif %}
+                    <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="img-link">
+                        {% if tin.anh_bia %}
+                            <img src="{{ tin.anh_bia.url }}" class="w-100" style="height: 240px; object-fit: cover;" alt="{{ tin.tieu_de }}">
+                        {% else %}
+                            <img src="[https://via.placeholder.com/400x240/e9ecef/6c757d?text=GSMS+News](https://via.placeholder.com/400x240/e9ecef/6c757d?text=GSMS+News)" class="w-100" style="height: 240px; object-fit: cover;" alt="No image">
+                        {% endif %}
+                    </a>
                     
                     <div class="date-badge">
                         <span class="day">{{ tin.ngay_dang|date:"d" }}</span>
@@ -114,8 +139,10 @@
                 <div class="card-body p-4 d-flex flex-column">
                     <span class="category-pill">Bản Tin Doanh Nghiệp</span>
                     
-                    <h5 class="card-title fw-bold text-dark line-clamp-2 mb-3" style="min-height: 48px; line-height: 1.4;">
-                        {{ tin.tieu_de }}
+                    <h5 class="card-title fw-bold line-clamp-2 mb-3" style="min-height: 48px; line-height: 1.4;">
+                        <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-dark text-decoration-none text-hover-primary">
+                            {{ tin.tieu_de }}
+                        </a>
                     </h5>
                     
                     <p class="card-text text-secondary line-clamp-3 mb-4" style="min-height: 72px;">
@@ -126,7 +153,8 @@
                         <div class="small text-muted fw-bold">
                             <i class="far fa-clock me-1"></i> {{ tin.ngay_dang|date:"H:i" }}
                         </div>
-                        <a href="#" class="btn btn-outline-primary btn-sm fw-bold rounded-pill px-3 shadow-sm hover-btn">
+                        
+                        <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="btn btn-outline-primary btn-sm fw-bold rounded-pill px-3 shadow-sm hover-btn">
                             Đọc tiếp <i class="fas fa-arrow-right ms-1"></i>
                         </a>
                     </div>
@@ -140,21 +168,43 @@
                 <i class="fas fa-newspaper fa-3x text-muted opacity-50"></i>
             </div>
             <h4 class="fw-bold text-dark">Chưa có bài viết nào</h4>
-            <p class="text-muted">Hệ thống đang cập nhật tin tức. Vui lòng quay lại sau nhé!</p>
-            <a href="{% url 'trang_chu' %}" class="btn btn-primary fw-bold px-4 rounded-pill mt-2">Về Trang Chủ</a>
+            <p class="text-muted">Hệ thống đang cập nhật tin tức hoặc không tìm thấy từ khóa của bạn.</p>
+            <a href="{% url 'tin_tuc' %}" class="btn btn-primary fw-bold px-4 rounded-pill mt-2">Xem Tất Cả Tin Tức</a>
         </div>
         {% endfor %}
     </div>
 
-    {% if ds_tin %}
+    {% if ds_tin.has_other_pages %}
     <div class="d-flex justify-content-center mt-5 pt-4">
         <ul class="pagination shadow-sm rounded-pill overflow-hidden">
-            <li class="page-item disabled"><a class="page-link border-0 fw-bold px-3 text-muted" href="#">Trước</a></li>
-            <li class="page-item active"><a class="page-link border-0 fw-bold bg-primary text-white" href="#">1</a></li>
-            <li class="page-item"><a class="page-link border-0 fw-bold text-dark" href="#">2</a></li>
-            <li class="page-item"><a class="page-link border-0 fw-bold px-3 text-dark" href="#">Sau</a></li>
+            
+            {% if ds_tin.has_previous %}
+                <li class="page-item">
+                    <a class="page-link border-0 fw-bold px-3 text-dark" href="?page={{ ds_tin.previous_page_number }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">Trước</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link border-0 fw-bold px-3 text-muted">Trước</span></li>
+            {% endif %}
+
+            {% for i in ds_tin.paginator.page_range %}
+                {% if ds_tin.number == i %}
+                    <li class="page-item active"><span class="page-link border-0 fw-bold bg-primary text-white">{{ i }}</span></li>
+                {% else %}
+                    <li class="page-item"><a class="page-link border-0 fw-bold text-dark" href="?page={{ i }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">{{ i }}</a></li>
+                {% endif %}
+            {% endfor %}
+
+            {% if ds_tin.has_next %}
+                <li class="page-item">
+                    <a class="page-link border-0 fw-bold px-3 text-dark" href="?page={{ ds_tin.next_page_number }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">Sau</a>
+                </li>
+            {% else %}
+                <li class="page-item disabled"><span class="page-link border-0 fw-bold px-3 text-muted">Sau</span></li>
+            {% endif %}
+            
         </ul>
     </div>
     {% endif %}
+    
 </div>
 {% endblock %}

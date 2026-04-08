@@ -127,16 +127,30 @@
 
 {% block extra_js %}
 <script>
-    // Hàm format tiền (hỗ trợ truyền ID của thẻ ẩn)
+    // Hàm format tiền siêu cấp (Chống nhảy con trỏ chuột)
     function formatTien(inputElement, hiddenInputId) {
-        // Lọc bỏ ký tự lạ, chỉ giữ số
+        // 1. BẮT VỊ TRÍ CON TRỎ CHUỘT HIỆN TẠI VÀ ĐỘ DÀI CHUỖI CŨ
+        let cursorPosition = inputElement.selectionStart;
+        let originalLength = inputElement.value.length;
+
+        // 2. Lọc bỏ ký tự lạ, chỉ giữ số
         let value = inputElement.value.replace(/\D/g, '');
         
         if (value !== "") {
-            // Định dạng hiển thị có dấu chấm (VD: 24.500)
-            inputElement.value = new Intl.NumberFormat('vi-VN').format(value);
-            // Ghi số thực (VD: 24500) vào thẻ ẩn
+            // 3. Format hiển thị có dấu chấm
+            let formattedValue = new Intl.NumberFormat('vi-VN').format(value);
+            inputElement.value = formattedValue;
+            
+            // 4. Ghi số thực vào thẻ ẩn để gửi về Server
             document.getElementById(hiddenInputId).value = value;
+
+            // 5. TÍNH TOÁN LẠI VỊ TRÍ CON TRỎ VÀ TRẢ VỀ CHỖ CŨ
+            // Nếu Javascript có chèn thêm dấu chấm, độ dài chuỗi sẽ tăng lên, mình cộng bù độ lệch vào
+            let newLength = formattedValue.length;
+            cursorPosition = cursorPosition + (newLength - originalLength);
+            
+            // Ép con trỏ chuột đứng im tại chỗ
+            inputElement.setSelectionRange(cursorPosition, cursorPosition);
         } else {
             inputElement.value = "";
             document.getElementById(hiddenInputId).value = "";
@@ -147,7 +161,6 @@
     document.addEventListener("DOMContentLoaded", function() {
         formatTien(document.getElementById('hien_thi_A95'), 'hidden_A95');
         formatTien(document.getElementById('hien_thi_E5'), 'hidden_E5');
-        // ĐÃ BỔ SUNG KHỞI ĐỘNG E10
         formatTien(document.getElementById('hien_thi_E10'), 'hidden_E10');
         formatTien(document.getElementById('hien_thi_DO'), 'hidden_DO');
     });

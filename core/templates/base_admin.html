@@ -65,17 +65,17 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link admin-nav-link {% if request.resolver_match.url_name == 'admin_add_station' %}active{% endif %}" href="{% url 'admin_add_station' %}">
+                        <a class="nav-link admin-nav-link {% if request.resolver_match.url_name == 'admin_trams' %}active{% endif %}" href="{% url 'admin_trams' %}">
                             <i class="fas fa-gas-pump text-info"></i> Quản lý Trạm
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link admin-nav-link {% if request.resolver_match.url_name == 'admin_add_ncc' %}active{% endif %}" href="{% url 'admin_add_ncc' %}">
+                        <a class="nav-link admin-nav-link {% if request.resolver_match.url_name == 'admin_khos' %}active{% endif %}" href="{% url 'admin_khos' %}">
                             <i class="fas fa-industry text-danger"></i> Quản lý Kho
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link admin-nav-link {% if request.resolver_match.url_name == 'quan_ly_nhan_su' %}active{% endif %}" href="{% url 'quan_ly_nhan_su' %}">
+                        <a class="nav-link admin-nav-link {% if request.resolver_match.url_name == 'admin_nhan_sus' %}active{% endif %}" href="{% url 'admin_nhan_sus' %}">
                             <i class="fas fa-users-cog text-light"></i> Quản lý Nhân sự
                         </a>
                     </li>
@@ -91,8 +91,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link admin-nav-link {% if 'banners' in request.path %}active{% endif %}" href="{% url 'admin_banners' %}">
-                            <i class="fas fa-images text-white"></i> Quản lý Banner
+                        <a class="nav-link text-white fw-bold" href="{% url 'admin_inbox' %}">
+                            <i class="fas fa-inbox me-2 text-warning"></i> Hộp Thư & Yêu Cầu 
+                            <span class="position-absolute ms-2 p-1 bg-danger border border-light rounded-circle blink-animation"></span>
                         </a>
                     </li>
                     <li class="nav-item ms-lg-2 ps-lg-2 border-start border-light border-opacity-25 d-none d-lg-block">
