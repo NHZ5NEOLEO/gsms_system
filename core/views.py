@@ -8,6 +8,7 @@ import logging
 from datetime import timedelta
 import base64
 import openpyxl
+import datetime
 
 from django.db.models import ProtectedError
 from django.http import JsonResponse
@@ -27,6 +28,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.db.models import Avg, Count, Q
+from django.utils.timezone import make_aware, is_naive
 
 # === IMPORT MODELS ĐÃ ĐƯỢC CẬP NHẬT (Xóa DanhMucDichVu, SanPhamDichVu) ===
 from .models import (
@@ -1605,7 +1607,9 @@ def nhap_excel(request):
                 try:
                     nhan_vien = User.objects.get(username=username)
                 except User.DoesNotExist:
-                    continue # Nếu không có nhân viên này thì bỏ qua dòng này
+                    # Thêm dòng cảnh báo này thay vì im lặng bỏ qua
+                    messages.warning(request, f"Bỏ qua dòng {row_idx}: Không tìm thấy nhân viên có tên đăng nhập là '{username}'")
+                    continue
 
                 # 2. Xử lý chuẩn hóa thời gian
                 if is_naive(ngay_ban_raw):
@@ -1627,6 +1631,92 @@ def nhap_excel(request):
                 HoaDon.objects.filter(id=hd.id).update(thoi_gian=ngay_ban)
 
                 # 4. Tạo Chi tiết Hóa đơn (Ghi nhận số lít bán ra)
+                don_gia = tong_tien / so_lit if so_lit > 0 else 0
+                ChiTietHoaDon.objects.create(
+                    hoa_don=hd,
+                    ten_mat_hang=f"Nhiên liệu {loai_nl}",
+                    so_luong=so_lit,
+                    don_gia=don_gia,
+                    thanh_tien=tong_tien
+                )
+                so_dong_thanh_cong += 1
+                    
+            messages.success(request, f'Thành công! Đã ghi nhận {so_dong_thanh_cong} hóa đơn doanh thu vào hệ thống.')
+            
+        except Exception as e:
+            messages.error(request, f'Lỗi hệ thống khi đọc file Excel: {str(e)}')
+
+    return redirect('admin_dashboard')
+def clean_float_data(value, row_number, column_name):
+    """Hàm hỗ trợ xử lý và bắt lỗi ép kiểu số thập phân"""
+    if value is None or value == '':
+        return 0.0
+    if isinstance(value, datetime.datetime):
+        raise ValueError(f"Dòng {row_number}: Cột '{column_name}' đang bị định dạng ngày tháng ({value.strftime('%d/%m/%Y')}). Vui lòng sửa lại thành số trong file Excel.")
+    try:
+        return float(value)
+    except ValueError:
+        raise ValueError(f"Dòng {row_number}: Cột '{column_name}' không phải là số hợp lệ ('{value}').")
+
+@login_required
+def nhap_excel(request):
+    if request.user.role not in ['admin', 'ke_toan'] and not request.user.is_superuser:
+        messages.error(request, "Bạn không có quyền thực hiện chức năng này!")
+        return redirect('admin_dashboard')
+
+    if request.method == 'POST' and request.FILES.get('file_excel'):
+        excel_file = request.FILES['file_excel']
+        
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            messages.error(request, 'Lỗi: Vui lòng tải lên file định dạng Excel (.xlsx hoặc .xls)')
+            return redirect('admin_dashboard')
+
+        try:
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+            sheet = wb.active
+            so_dong_thanh_cong = 0
+            
+            # Sử dụng enumerate để lấy được số thứ tự dòng (dùng cho việc báo lỗi)
+            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
+                username = str(row[0]) if row[0] else None
+                ngay_ban_raw = row[1]
+                loai_nl = str(row[2]) if row[2] else 'A95'
+                pt_thanh_toan = str(row[5]) if row[5] else 'tien_mat'
+
+                # Gọi hàm try-except để bắt lỗi ngày tháng thay vì dùng thẳng float()
+                try:
+                    so_lit = clean_float_data(row[3], row_idx, "Số lít")
+                    tong_tien = clean_float_data(row[4], row_idx, "Tổng tiền")
+                except ValueError as ve:
+                    # Nếu lỗi float, báo ra màn hình và dừng toàn bộ quá trình nhập
+                    messages.error(request, f"Lỗi dữ liệu Excel: {str(ve)}")
+                    return redirect('admin_dashboard')
+
+                if not username or so_lit <= 0:
+                    continue
+
+                try:
+                    nhan_vien = User.objects.get(username=username)
+                except User.DoesNotExist:
+                    continue 
+
+                # Xử lý thời gian
+                if isinstance(ngay_ban_raw, datetime.datetime):
+                    ngay_ban = make_aware(ngay_ban_raw) if is_naive(ngay_ban_raw) else ngay_ban_raw
+                else:
+                    ngay_ban = make_aware(datetime.datetime.now()) # Fallback nếu excel không có ngày
+
+                # Tạo Hóa Đơn
+                ma_hd_moi = f"HD-EXCEL-{uuid.uuid4().hex[:6].upper()}"
+                hd = HoaDon.objects.create(
+                    ma_hd=ma_hd_moi,
+                    nhan_vien=nhan_vien,
+                    tong_tien=tong_tien,
+                    phuong_thuc_thanh_toan=pt_thanh_toan,
+                )
+                
+                HoaDon.objects.filter(id=hd.id).update(thoi_gian=ngay_ban)
+
                 don_gia = tong_tien / so_lit if so_lit > 0 else 0
                 ChiTietHoaDon.objects.create(
                     hoa_don=hd,

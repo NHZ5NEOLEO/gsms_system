@@ -17,6 +17,9 @@
         max-width: none !important;
         max-height: none !important;
     }
+    
+    /* CSS CHOHO DANH SÁCH TÌM KIẾM ĐỊA CHỈ */
+    .suggestion-item:hover { background-color: #e9ecef; cursor: pointer; }
 </style>
 <div class="container-fluid py-4">
     <div class="row justify-content-center">
@@ -46,9 +49,13 @@
                                     <input type="text" name="ten_tram" class="form-control form-control-lg bg-light" placeholder="VD: GSMS 01 - Bến Thành" value="{{ tram.ten_tram|default:'' }}" required>
                                 </div>
                                 
-                                <div class="mb-4">
-                                    <label class="fw-bold mb-2 text-dark">Địa Chỉ Chi Tiết <span class="text-danger">*</span></label>
-                                    <textarea name="dia_chi" class="form-control bg-light" rows="3" placeholder="Số nhà, Tên đường, Quận/Huyện, Tỉnh/TP..." required>{{ tram.dia_chi|default:'' }}</textarea>
+                                <div class="mb-4 position-relative">
+                                    <label class="fw-bold mb-2 text-dark">Địa Chỉ (Gõ để tìm kiếm) <span class="text-danger">*</span></label>
+                                    <div class="input-group shadow-sm">
+                                        <span class="input-group-text bg-white border-end-0"><i class="fas fa-search text-muted"></i></span>
+                                        <textarea name="dia_chi" id="diaChiInput" class="form-control bg-white border-start-0" rows="2" placeholder="Gõ địa chỉ để tìm hoặc click trên bản đồ..." required>{{ tram.dia_chi|default:'' }}</textarea>
+                                    </div>
+                                    <ul class="list-group position-absolute w-100 shadow-lg" id="suggestionList" style="z-index: 1050; display: none; max-height: 250px; overflow-y: auto; top: 100%;"></ul>
                                 </div>
 
                                 <div class="mb-4 p-3 bg-light border rounded-3" style="border-left: 4px solid #0d6efd !important;">
@@ -89,9 +96,9 @@
 
                             <div class="col-md-7">
                                 <h5 class="fw-bold text-secondary mb-4 border-bottom pb-2">
-                                    2. Chọn vị trí trên bản đồ <span class="text-danger">*</span>
+                                    2. Bản đồ & Tọa độ <span class="text-danger">*</span>
                                 </h5>
-                                <p class="small text-primary mb-2"><i class="fas fa-mouse-pointer me-1"></i> Bấm vào bản đồ để thả ghim (Marker) xác định tọa độ của trạm.</p>
+                                <p class="small text-primary mb-2"><i class="fas fa-mouse-pointer me-1"></i> Bấm vào bản đồ để thả ghim (Marker) hoặc dùng thanh tìm kiếm bên trái.</p>
                                 
                                 <div class="map-container mb-3">
                                     <div id="map"></div>
@@ -173,17 +180,15 @@
 <script>
 document.addEventListener("DOMContentLoaded", function() {
     
-    // 1. TUYỆT CHIÊU TRỊ LỖI DẤU PHẨY CỦA DJANGO:
-    var strLat = "{{ tram.latitude|default:'10.9150' }}".replace(',', '.');
-    var strLng = "{{ tram.longitude|default:'106.7920' }}".replace(',', '.');
+    // 1. Xử lý tọa độ mặc định
+    var strLat = "{{ tram.latitude|default:'10.762622' }}".replace(',', '.');
+    var strLng = "{{ tram.longitude|default:'106.660172' }}".replace(',', '.');
     
     var defaultLat = parseFloat(strLat);
     var defaultLng = parseFloat(strLng);
     
     // 2. Khởi tạo bản đồ
     var map = L.map('map').setView([defaultLat, defaultLng], 14);
-
-    // Đánh thức bản đồ để không bị lỗi vỡ ngói của Bootstrap
     setTimeout(function(){ map.invalidateSize(); }, 300);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { 
@@ -197,17 +202,77 @@ document.addEventListener("DOMContentLoaded", function() {
     });
 
     var marker = null;
-    var latInput = document.querySelector('input[name="latitude"]');
-    var lngInput = document.querySelector('input[name="longitude"]');
-    var diaChiInput = document.querySelector('textarea[name="dia_chi"]');
+    var latInput = document.getElementById('lat_input');
+    var lngInput = document.getElementById('lng_input');
+    var diaChiInput = document.getElementById('diaChiInput');
+    var suggestionList = document.getElementById('suggestionList');
+    var searchTimeout;
 
-    // 4. KIỂM TRA: NẾU ĐANG SỬA TRẠM THÌ CẮM CỜ Ở VỊ TRÍ HIỆN TẠI
+    // 4. Khởi tạo cờ nếu đang Edit trạm
     {% if tram %}
         marker = L.marker([defaultLat, defaultLng], {icon: stationIcon}).addTo(map)
                   .bindPopup("<strong class='text-primary'>Vị trí hiện tại của Trạm</strong>").openPopup();
     {% endif %}
 
-    // 5. Sự kiện Click ghim tọa độ
+    // 5. Tính năng TÌM KIẾM ĐỊA CHỈ TỰ ĐỘNG
+    diaChiInput.addEventListener('input', function() {
+        var query = this.value;
+        if (query.length < 3) { suggestionList.style.display = 'none'; return; }
+        
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(function() {
+            suggestionList.innerHTML = '<li class="list-group-item text-center"><i class="fas fa-spinner fa-spin text-primary"></i> Đang tìm địa điểm...</li>';
+            suggestionList.style.display = 'block';
+
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=vn&limit=5`)
+                .then(res => res.json())
+                .then(data => {
+                    suggestionList.innerHTML = ''; 
+                    if (data.length > 0) {
+                        data.forEach(item => {
+                            var li = document.createElement('li');
+                            li.className = 'list-group-item suggestion-item small';
+                            li.innerHTML = `<i class="fas fa-map-marker-alt text-danger me-2"></i> ${item.display_name}`;
+                            li.onclick = () => {
+                                suggestionList.style.display = 'none';
+                                
+                                // Điền địa chỉ rút gọn
+                                diaChiInput.value = item.display_name.replace(', Vietnam', '').replace(', Việt Nam', '');
+                                
+                                var lat = parseFloat(item.lat);
+                                var lon = parseFloat(item.lon);
+                                
+                                // Cập nhật input tọa độ
+                                latInput.value = lat.toFixed(6);
+                                lngInput.value = lon.toFixed(6);
+                                
+                                // Di chuyển bản đồ và cắm cờ
+                                map.setView([lat, lon], 16);
+                                if (marker) {
+                                    marker.setLatLng([lat, lon]);
+                                } else {
+                                    marker = L.marker([lat, lon], {icon: stationIcon}).addTo(map);
+                                }
+                                marker.bindPopup("<strong class='text-success'>Đã ghim vị trí theo địa chỉ!</strong>").openPopup();
+                            };
+                            suggestionList.appendChild(li);
+                        });
+                    } else {
+                        suggestionList.innerHTML = '<li class="list-group-item text-muted small">Không tìm thấy địa điểm.</li>';
+                    }
+                })
+                .catch(() => suggestionList.style.display = 'none');
+        }, 600); // Đợi 0.6s sau khi người dùng ngừng gõ mới tìm
+    });
+
+    // Ẩn danh sách tìm kiếm khi click ra ngoài
+    document.addEventListener('click', e => {
+        if (!diaChiInput.contains(e.target) && !suggestionList.contains(e.target)) {
+            suggestionList.style.display = 'none';
+        }
+    });
+
+    // 6. Sự kiện Click ghim tọa độ bằng tay
     map.on('click', function(e) {
         var clickedLat = e.latlng.lat;
         var clickedLng = e.latlng.lng;
@@ -225,20 +290,20 @@ document.addEventListener("DOMContentLoaded", function() {
         marker.bindPopup("<strong class='text-success'>Đã dời vị trí đến đây!</strong>").openPopup();
 
         // Tự động tìm địa chỉ (Reverse Geocoding)
-        if(diaChiInput) diaChiInput.value = "Đang kết nối vệ tinh tìm địa chỉ..."; 
+        diaChiInput.value = "Đang kết nối vệ tinh tìm địa chỉ..."; 
         var url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${clickedLat}&lon=${clickedLng}`;
         
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                if (data && data.display_name && diaChiInput) {
+                if (data && data.display_name) {
                     diaChiInput.value = data.display_name.replace(', Vietnam', '').replace(', Việt Nam', '');
-                } else if(diaChiInput) {
-                    diaChiInput.value = "Không tìm thấy địa chỉ cụ thể. Vui lòng nhập tay.";
+                } else {
+                    diaChiInput.value = "Không tìm thấy địa chỉ cụ thể. Vui lòng gõ tay.";
                 }
             })
             .catch(err => { 
-                if(diaChiInput) diaChiInput.value = "Lỗi đường truyền vệ tinh. Vui lòng nhập tay."; 
+                diaChiInput.value = "Lỗi đường truyền vệ tinh. Vui lòng gõ tay."; 
             });
     });
 });
