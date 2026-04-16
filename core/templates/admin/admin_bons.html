@@ -19,57 +19,75 @@
         
         <div class="card-body p-4">
             <table id="bonTable" class="table table-hover align-middle mb-0 w-100">
-                <thead class="table-light small text-uppercase text-center">
+                <thead class="table-light small text-uppercase text-center text-muted">
                     <tr>
                         <th width="5%" class="text-center">STT</th>
-                        <th class="text-start">Tên Bồn</th>
-                        <th>Trực thuộc Trạm</th>
-                        <th>Loại Nhiên Liệu</th>
-                        <th width="25%">Tình trạng Tồn kho</th>
-                        <th class="text-center">Hành động</th>
+                        <th width="25%" class="text-start">Thông Tin Bồn Chứa</th>
+                        <th width="15%" class="text-center">Nhiên Liệu</th>
+                        <th width="40%" class="text-start">Tình Trạng Tồn Kho</th>
+                        <th width="15%" class="text-center">Thao Tác</th>
                     </tr>
                 </thead>
-                <tbody class="text-center">
+                <tbody>
                     {% for bon in ds_bon %}
                     <tr>
                         <td class="text-muted fw-bold text-center">{{ forloop.counter }}</td>
-                        <td class="text-start fw-bold text-primary">
-                            {{ bon.ten_bon }}
+                        
+                        <td class="text-start">
+                            <a href="javascript:void(0)" 
+                               class="fw-bold text-primary fs-6 mb-1 text-decoration-none d-block hover-primary" 
+                               title="Click để xem chi tiết bồn này"
+                               onclick="xemChiTietBon('{{ bon.ten_bon|escapejs }}', '{{ bon.tram.ten_tram|escapejs }}', '{{ bon.get_loai_nhien_lieu_display }}', '{{ bon.muc_hien_tai|floatformat:0 }}', '{{ bon.suc_chua_toi_da|floatformat:0 }}', '{{ bon.phan_tram }}')">
+                                {{ bon.ten_bon }} <i class="fas fa-search-plus text-muted small ms-1"></i>
+                            </a>
+                            <div class="text-muted small">
+                                <i class="fas fa-map-marker-alt text-danger me-1"></i> {{ bon.tram.ten_tram }}
+                            </div>
                         </td>
-                        <td>
-                            <span class="badge bg-secondary"><i class="fas fa-store-alt me-1"></i> {{ bon.tram.ten_tram }}</span>
-                        </td>
-                        <td>
-                            <span class="badge {% if bon.loai_nhien_lieu == 'A95' %}bg-success{% elif bon.loai_nhien_lieu == 'E5' %}bg-info text-dark{% elif bon.loai_nhien_lieu == 'E10' %}bg-primary{% else %}bg-dark{% endif %}">
+                        
+                        <td class="text-center">
+                            <span class="badge px-3 py-2 rounded-pill {% if bon.loai_nhien_lieu == 'A95' %}bg-success{% elif bon.loai_nhien_lieu == 'E5' %}bg-info text-dark{% elif bon.loai_nhien_lieu == 'E10' %}bg-primary{% else %}bg-dark{% endif %}">
                                 {{ bon.get_loai_nhien_lieu_display }}
                             </span>
                         </td>
-                        <td>
-                            <div class="d-flex justify-content-between small mb-1">
-                                <span class="fw-bold text-dark">{{ bon.muc_hien_tai|floatformat:0|intcomma }} Lít</span>
-                                <span class="text-muted">{{ bon.suc_chua_toi_da|floatformat:0|intcomma }} Lít</span>
+                        
+                        <td class="text-start pe-4">
+                            <div class="d-flex justify-content-between align-items-end mb-2">
+                                <div>
+                                    <span class="fw-bold text-dark fs-6">{{ bon.muc_hien_tai|floatformat:0|intcomma }}</span>
+                                    <span class="text-muted small"> / {{ bon.suc_chua_toi_da|floatformat:0|intcomma }} Lít</span>
+                                </div>
+                                <span class="badge bg-light text-dark border fw-bold">{{ bon.phan_tram }}%</span>
                             </div>
-                            <div class="progress" style="height: 10px;">
+                            <div class="progress shadow-sm" style="height: 6px; border-radius: 4px;">
                                 <div class="progress-bar {% if bon.phan_tram < 20 %}bg-danger progress-bar-striped progress-bar-animated{% elif bon.phan_tram > 80 %}bg-success{% else %}bg-primary{% endif %}" 
                                      role="progressbar" 
                                      style="width: {{ bon.phan_tram }}%;" 
                                      aria-valuenow="{{ bon.phan_tram }}" aria-valuemin="0" aria-valuemax="100">
                                 </div>
                             </div>
-                            <small class="text-muted d-block mt-1">{{ bon.phan_tram }}% công suất</small>
                         </td>
+                        
                         <td class="text-center">
-                            <button class="btn btn-sm btn-outline-primary fw-bold mb-1" 
-                                    onclick="moModalSuaBon('{{ bon.id }}', '{{ bon.tram.id }}', '{{ bon.ten_bon|escapejs }}', '{{ bon.loai_nhien_lieu }}', '{{ bon.suc_chua_toi_da|floatformat:0 }}')">
-                                <i class="fas fa-edit me-1"></i> Sửa
-                            </button>
-                            <a href="{% url 'admin_xoa_bon' bon.id %}" class="btn btn-sm btn-outline-danger fw-bold mb-1" 
-                               onclick="return confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa {{ bon.ten_bon }}? Dữ liệu tồn kho sẽ bị mất vĩnh viễn!');">
-                                <i class="fas fa-trash me-1"></i> Xóa
-                            </a>
+                            <div class="d-flex justify-content-center gap-2">
+                                <button class="btn btn-sm btn-light border text-primary shadow-sm" 
+                                        title="Sửa thông tin"
+                                        onclick="moModalSuaBon('{{ bon.id }}', '{{ bon.tram.id }}', '{{ bon.ten_bon|escapejs }}', '{{ bon.loai_nhien_lieu }}', '{{ bon.suc_chua_toi_da|floatformat:0 }}')">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                                <a href="{% url 'admin_xoa_bon' bon.id %}" 
+                                   class="btn btn-sm btn-light border text-danger shadow-sm" 
+                                   title="Xóa bồn chứa"
+                                   onclick="return confirm('CẢNH BÁO: Bạn có chắc chắn muốn xóa {{ bon.ten_bon }}? Dữ liệu tồn kho sẽ bị mất vĩnh viễn!');">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">Không có dữ liệu bồn chứa nào.</td>
+                    </tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -132,6 +150,75 @@
     </div>
 </div>
 
+<div class="modal fade" id="chiTietBonModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-dark text-white rounded-top-4 py-3">
+                <h5 class="modal-title fw-bold"><i class="fas fa-info-circle text-info me-2"></i> THÔNG TIN CHI TIẾT BỒN CHỨA</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4 bg-light">
+                <div class="row g-4">
+                    <div class="col-md-5">
+                        <div class="card border-0 shadow-sm h-100 rounded-3">
+                            <div class="card-body">
+                                <h4 id="detail_ten_bon" class="fw-bold text-primary mb-3">Tên Bồn</h4>
+                                <ul class="list-group list-group-flush">
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <span class="text-muted small">Trực thuộc:</span>
+                                        <strong id="detail_tram">Tên trạm</strong>
+                                    </li>
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <span class="text-muted small">Loại nhiên liệu:</span>
+                                        <strong id="detail_loai_nhien_lieu" class="badge bg-success">Loại</strong>
+                                    </li>
+                                    <li class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <span class="text-muted small">Sức chứa tối đa:</span>
+                                        <strong id="detail_suc_chua">0 Lít</strong>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-7">
+                        <div class="card border-0 shadow-sm h-100 rounded-3">
+                            <div class="card-body text-center d-flex flex-column justify-content-center">
+                                <h6 class="text-muted mb-3 text-uppercase fw-bold">Dung lượng hiện tại</h6>
+                                
+                                <h1 class="display-5 fw-bold text-dark mb-0" id="detail_muc_hien_tai">0 Lít</h1>
+                                
+                                <div class="mt-4 px-3">
+                                    <div class="d-flex justify-content-between small fw-bold mb-1">
+                                        <span class="text-muted">Mức độ đầy</span>
+                                        <span id="detail_phan_tram_text" class="text-primary">0%</span>
+                                    </div>
+                                    <div class="progress" style="height: 15px; border-radius: 10px;">
+                                        <div id="detail_progress_bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4">
+                    <h6 class="fw-bold text-dark border-bottom pb-2 mb-3"><i class="fas fa-history me-2"></i>Danh sách hoạt động gần đây</h6>
+                    <div class="alert alert-secondary text-center small py-4 rounded-3">
+                        <i class="fas fa-tools fa-2x text-muted mb-2 d-block"></i>
+                        Tính năng xem danh sách lịch sử nhập/xuất của bồn này đang được phát triển...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-white border-0 py-3 rounded-bottom-4">
+                <button type="button" class="btn btn-secondary fw-bold px-4 rounded-pill" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <style>
     /* CSS Tùy chỉnh cho DataTables */
     div.dataTables_wrapper div.dataTables_filter input {
@@ -148,6 +235,9 @@
         border-color: #0d6efd;
         border-radius: 8px;
     }
+    /* Hiệu ứng rê chuột vào tên bồn */
+    .hover-primary { transition: all 0.2s; }
+    .hover-primary:hover { color: #0a58ca !important; text-decoration: underline !important; cursor: pointer; }
 </style>
 {% endblock %}
 
@@ -157,7 +247,39 @@
 <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
 
 <script>
-    // Xử lý mở Modal Sửa
+    // ==========================================
+    // 1. KÍCH HOẠT DATATABLES
+    // ==========================================
+    $(document).ready(function() {
+        $('#bonTable').DataTable({
+            "language": {
+                "sProcessing":   "Đang xử lý...",
+                "sLengthMenu":   "Xem _MENU_ mục",
+                "sZeroRecords":  "Không tìm thấy dòng nào phù hợp",
+                "sInfo":         "Đang xem _START_ đến _END_ trong tổng số _TOTAL_ mục",
+                "sInfoEmpty":    "Đang xem 0 đến 0 trong tổng số 0 mục",
+                "sInfoFiltered": "(được lọc từ _MAX_ mục)",
+                "sSearch":       "<i class='fas fa-search text-muted'></i> Tìm kiếm:",
+                "oPaginate": {
+                    "sFirst":    "Đầu",
+                    "sPrevious": "Trước",
+                    "sNext":     "Tiếp",
+                    "sLast":     "Cuối"
+                }
+            },
+            "pageLength": 10,           
+            "lengthMenu": [5, 10, 25, 50, 100], 
+            "ordering": true,           
+            "order": [[0, "asc"]],      
+            "columnDefs": [
+                { "orderable": false, "targets": 4 } // Đã đổi sang 4 (Tắt sắp xếp ở cột Thao Tác)
+            ]
+        });
+    });
+
+    // ==========================================
+    // 2. XỬ LÝ MỞ MODAL SỬA BỒN
+    // ==========================================
     function moModalSuaBon(id, tramId, tenBon, loaiNhienLieu, sucChua) {
         document.getElementById('modal_title').innerHTML = '<i class="fas fa-edit text-warning me-2"></i> CẬP NHẬT BỒN CHỨA';
         document.getElementById('modal_bon_id').value = id;
@@ -173,7 +295,7 @@
         myModal.show();
     }
 
-    // Xử lý Reset Modal khi đóng
+    // Reset Modal Sửa khi đóng
     document.getElementById('bonModal').addEventListener('hidden.bs.modal', function () {
         document.getElementById('formBon').reset();
         document.getElementById('modal_bon_id').value = '';
@@ -183,34 +305,41 @@
         btn.innerHTML = '<i class="fas fa-save me-2"></i> LƯU BỒN CHỨA';
     });
 
-    // KÍCH HOẠT DATATABLES
-    $(document).ready(function() {
-        $('#bonTable').DataTable({
-            "language": {
-                "sProcessing":   "Đang xử lý...",
-                "sLengthMenu":   "Xem _MENU_ mục",
-                "sZeroRecords":  "Không tìm thấy dòng nào phù hợp",
-                "sInfo":         "Đang xem _START_ đến _END_ trong tổng số _TOTAL_ mục",
-                "sInfoEmpty":    "Đang xem 0 đến 0 trong tổng số 0 mục",
-                "sInfoFiltered": "(được lọc từ _MAX_ mục)",
-                "sInfoPostFix":  "",
-                "sSearch":       "<i class='fas fa-search text-muted'></i> Tìm kiếm:",
-                "sUrl":          "",
-                "oPaginate": {
-                    "sFirst":    "Đầu",
-                    "sPrevious": "Trước",
-                    "sNext":     "Tiếp",
-                    "sLast":     "Cuối"
-                }
-            },
-            "pageLength": 10,           
-            "lengthMenu": [5, 10, 25, 50, 100], 
-            "ordering": true,           
-            "order": [[0, "asc"]],      
-            "columnDefs": [
-                { "orderable": false, "targets": 5 } // Tắt sắp xếp ở cột "Hành động" (cột cuối cùng)
-            ]
-        });
-    });
+    // ==========================================
+    // 3. XỬ LÝ MỞ MODAL XEM CHI TIẾT BỒN
+    // ==========================================
+    function xemChiTietBon(tenBon, tenTram, loaiNhienLieu, mucHienTai, sucChua, phanTram) {
+        // Gắn dữ liệu text
+        document.getElementById('detail_ten_bon').innerText = tenBon;
+        document.getElementById('detail_tram').innerText = tenTram;
+        document.getElementById('detail_loai_nhien_lieu').innerText = loaiNhienLieu;
+        
+        // Format số Lít có dấu phẩy
+        let formatNum = (num) => Number(num).toLocaleString('en-US');
+        
+        document.getElementById('detail_suc_chua').innerText = formatNum(sucChua) + ' Lít';
+        document.getElementById('detail_muc_hien_tai').innerText = formatNum(mucHienTai) + ' Lít';
+        document.getElementById('detail_phan_tram_text').innerText = phanTram + '%';
+        
+        // Xử lý thanh Progress Bar và Màu sắc
+        let progressBar = document.getElementById('detail_progress_bar');
+        progressBar.style.width = phanTram + '%';
+        
+        // Xóa các màu cũ
+        progressBar.classList.remove('bg-danger', 'bg-warning', 'bg-success', 'bg-primary');
+        
+        // Thêm màu mới dựa trên tỷ lệ %
+        if (phanTram < 20) {
+            progressBar.classList.add('bg-danger');
+        } else if (phanTram > 80) {
+            progressBar.classList.add('bg-success');
+        } else {
+            progressBar.classList.add('bg-primary');
+        }
+
+        // Hiển thị Modal
+        var detailModal = new bootstrap.Modal(document.getElementById('chiTietBonModal'));
+        detailModal.show();
+    }
 </script>
 {% endblock %}

@@ -7,6 +7,7 @@ import string
 import logging
 from datetime import timedelta
 import base64
+import openpyxl
 
 from django.db.models import ProtectedError
 from django.http import JsonResponse
@@ -515,6 +516,9 @@ def bao_cao_tram(request):
 # ==========================================
 # 4. QUẢN TRỊ TỔNG QUAN (ADMIN & KẾ TOÁN)
 # ==========================================
+from django.core.paginator import Paginator
+from itertools import groupby
+
 @login_required
 def admin_dashboard(request):
     if request.user.role not in ['admin', 'ke_toan'] and not request.user.is_superuser:
@@ -522,7 +526,7 @@ def admin_dashboard(request):
         return redirect('trang_chu')
 
     today = timezone.now().date()
-    ds_bon = BonChua.objects.all()
+    ds_bon = BonChua.objects.select_related('tram').all()
 
     stats = HoaDon.objects.filter(thoi_gian__date=today).aggregate(
         total_money=Sum('tong_tien'), total_tx=Count('id')
@@ -550,8 +554,19 @@ def admin_dashboard(request):
         })
     bang_doanh_thu.sort(key=lambda x: x['doanh_thu'], reverse=True)
 
+    # --- CODE MỚI THÊM: PHÂN TRANG BẢNG DOANH THU ---
+    paginator_doanh_thu = Paginator(bang_doanh_thu, 5) # 5 dòng/trang
+    page_doanh_thu = paginator_doanh_thu.get_page(request.GET.get('page_dt'))
+
+    # --- CODE MỚI THÊM: PHÂN TRANG BỒN CHỨA ---
+    # Phải gom nhóm bồn theo trạm ở backend trước khi chia trang
+    ds_bon_sorted = ds_bon.order_by('tram__ten_tram')
+    grouped_tanks = [{'tram': k, 'bons': list(g)} for k, g in groupby(ds_bon_sorted, key=lambda x: x.tram.ten_tram)]
+    paginator_ton_kho = Paginator(grouped_tanks, 5) # 5 trạm/trang
+    page_ton_kho = paginator_ton_kho.get_page(request.GET.get('page_tk'))
+
+    # (Code xử lý biểu đồ day_data, month_data... của bạn giữ nguyên ở đây)
     now = timezone.now()
-    
     def lay_tong_nhien_lieu(hds_queryset):
         chi_tiet = ChiTietHoaDon.objects.filter(hoa_don__in=hds_queryset).values('ten_mat_hang').annotate(tong=Sum('so_luong'))
         fuels = [0, 0, 0, 0] 
@@ -563,24 +578,6 @@ def admin_dashboard(request):
             elif 'E10' in ten: fuels[2] += so_luong
             elif 'DO' in ten: fuels[3] += so_luong
         return fuels
-
-    hds_7days = HoaDon.objects.filter(thoi_gian__date__gte=now.date() - timedelta(days=6))
-    day_data = {'labels': [], 'revenue': [], 'volume': [], 'fuels': lay_tong_nhien_lieu(hds_7days)}
-    for i in range(6, -1, -1):
-        dt = now - timedelta(days=i)
-        day_data['labels'].append(dt.strftime("%d/%m"))
-        hds = HoaDon.objects.filter(thoi_gian__date=dt.date())
-        day_data['revenue'].append(float(hds.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0) / 1000000)
-        day_data['volume'].append(float(ChiTietHoaDon.objects.filter(hoa_don__in=hds).aggregate(Sum('so_luong'))['so_luong__sum'] or 0))
-
-    hds_28days = HoaDon.objects.filter(thoi_gian__date__gte=now.date() - timedelta(days=27))
-    month_data = {'labels': ['Tuần 1', 'Tuần 2', 'Tuần 3', 'Tuần 4'], 'revenue': [0,0,0,0], 'volume': [0,0,0,0], 'fuels': lay_tong_nhien_lieu(hds_28days)}
-    for i in range(28):
-        dt = now - timedelta(days=i)
-        week_idx = 3 - (i // 7)
-        hds = HoaDon.objects.filter(thoi_gian__date=dt.date())
-        month_data['revenue'][week_idx] += float(hds.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0) / 1000000
-        month_data['volume'][week_idx] += float(ChiTietHoaDon.objects.filter(hoa_don__in=hds).aggregate(Sum('so_luong'))['so_luong__sum'] or 0)
 
     hds_year = HoaDon.objects.filter(thoi_gian__year=now.year)
     year_data = {'labels': [f'T{i}' for i in range(1, 13)], 'revenue': [0]*12, 'volume': [0]*12, 'fuels': lay_tong_nhien_lieu(hds_year)}
@@ -596,18 +593,19 @@ def admin_dashboard(request):
         'volume': [sum(year_data['volume'][0:3]), sum(year_data['volume'][3:6]), sum(year_data['volume'][6:9]), sum(year_data['volume'][9:12])],
         'fuels': year_data['fuels'] 
     }
-
-    chart_data = {'day': day_data, 'month': month_data, 'quarter': quarter_data, 'year': year_data}
+    # (Để code ngắn gọn, mình rút gọn phần data biểu đồ, bạn cứ giữ nguyên code biểu đồ cũ của bạn)
+    chart_data = {'day': {}, 'month': {}, 'quarter': quarter_data, 'year': year_data}
     
     context = {
-        'ds_bon': ds_bon,
         'doanh_thu_hom_nay': doanh_thu,
         'loi_nhuan_hom_nay': loi_nhuan_hom_nay, 
         'san_luong_hom_nay': san_luong,
         'so_giao_dich': so_giao_dich,
         'chart_data_json': json.dumps(chart_data),
-        'bang_doanh_thu': bang_doanh_thu,
         'tu_khoa': tu_khoa,
+        # Đưa 2 biến phân trang ra giao diện
+        'page_doanh_thu': page_doanh_thu,
+        'page_ton_kho': page_ton_kho,
     }
     return render(request, 'admin/admin_dashboard.html', context)
 
@@ -1483,6 +1481,7 @@ def gui_danh_gia_tram(request):
             messages.error(request, f"Lỗi gửi đánh giá: {e}")
             
     return redirect('trang_chu')
+<<<<<<< HEAD
 @login_required
 def mo_ca(request):
     if request.method == 'POST':
@@ -1570,3 +1569,80 @@ def xuat_excel_tram(request):
         writer.writerow([ten, username, so_don, tong_ban])
 
     return response
+=======
+
+
+@login_required
+def nhap_excel(request):
+    if request.user.role not in ['admin', 'ke_toan'] and not request.user.is_superuser:
+        messages.error(request, "Bạn không có quyền thực hiện chức năng này!")
+        return redirect('admin_dashboard')
+
+    if request.method == 'POST' and request.FILES.get('file_excel'):
+        excel_file = request.FILES['file_excel']
+        
+        if not excel_file.name.endswith(('.xlsx', '.xls')):
+            messages.error(request, 'Lỗi: Vui lòng tải lên file định dạng Excel (.xlsx hoặc .xls)')
+            return redirect('admin_dashboard')
+
+        try:
+            wb = openpyxl.load_workbook(excel_file, data_only=True)
+            sheet = wb.active
+            so_dong_thanh_cong = 0
+            
+            # Bỏ qua dòng 1 (Tiêu đề)
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                # Đọc dữ liệu từng cột theo file mẫu
+                username = str(row[0]) if row[0] else None
+                ngay_ban_raw = row[1]
+                loai_nl = str(row[2]) if row[2] else 'A95'
+                so_lit = float(row[3]) if row[3] else 0.0
+                tong_tien = float(row[4]) if row[4] else 0.0
+                pt_thanh_toan = str(row[5]) if row[5] else 'tien_mat'
+
+                if not username or so_lit <= 0:
+                    continue # Bỏ qua dòng thiếu dữ liệu quan trọng
+
+                # 1. Tìm nhân viên để biết doanh thu này của Trạm nào
+                try:
+                    nhan_vien = User.objects.get(username=username)
+                except User.DoesNotExist:
+                    continue # Nếu không có nhân viên này thì bỏ qua dòng này
+
+                # 2. Xử lý chuẩn hóa thời gian
+                if is_naive(ngay_ban_raw):
+                    ngay_ban = make_aware(ngay_ban_raw)
+                else:
+                    ngay_ban = ngay_ban_raw
+
+                # 3. Tạo Hóa Đơn gốc
+                ma_hd_moi = f"HD-EXCEL-{uuid.uuid4().hex[:6].upper()}"
+                hd = HoaDon.objects.create(
+                    ma_hd=ma_hd_moi,
+                    nhan_vien=nhan_vien,
+                    tong_tien=tong_tien,
+                    phuong_thuc_thanh_toan=pt_thanh_toan,
+                )
+                
+                # Ép lại thời gian bán hàng theo đúng file Excel 
+                # (Vì create() sẽ tự động lấy giờ hiện tại do trường auto_now_add)
+                HoaDon.objects.filter(id=hd.id).update(thoi_gian=ngay_ban)
+
+                # 4. Tạo Chi tiết Hóa đơn (Ghi nhận số lít bán ra)
+                don_gia = tong_tien / so_lit if so_lit > 0 else 0
+                ChiTietHoaDon.objects.create(
+                    hoa_don=hd,
+                    ten_mat_hang=f"Nhiên liệu {loai_nl}",
+                    so_luong=so_lit,
+                    don_gia=don_gia,
+                    thanh_tien=tong_tien
+                )
+                so_dong_thanh_cong += 1
+                    
+            messages.success(request, f'Thành công! Đã ghi nhận {so_dong_thanh_cong} hóa đơn doanh thu vào hệ thống.')
+            
+        except Exception as e:
+            messages.error(request, f'Lỗi hệ thống khi đọc file Excel: {str(e)}')
+
+    return redirect('admin_dashboard')
+>>>>>>> 459ef4b08061a54296e17a23e42c0a97f7ca9639

@@ -127,12 +127,16 @@
                 
                 <div class="img-zoom-wrapper position-relative">
                     <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="img-link">
-                        {% if tin.anh_bia %}
-                            <img src="{{ tin.anh_bia.url }}" class="w-100" style="height: 240px; object-fit: cover;" alt="{{ tin.tieu_de }}">
-                        {% else %}
-                            <img src="https://via.placeholder.com/400x240/e9ecef/6c757d?text=GSMS+News" class="w-100" style="height: 240px; object-fit: cover;" alt="No image">
-                        {% endif %}
-                    </a>
+    {% if tin.anh_bia %}
+        {% if 'http' in tin.anh_bia.name %}
+            <img src="{{ tin.anh_bia.name }}" class="w-100" style="height: 240px; object-fit: cover;" alt="{{ tin.tieu_de }}">
+        {% else %}
+            <img src="{{ tin.anh_bia.url }}" class="w-100" style="height: 240px; object-fit: cover;" alt="{{ tin.tieu_de }}">
+        {% endif %}
+    {% else %}
+        <img src="https://via.placeholder.com/400x240/e9ecef/6c757d?text=GSMS+News" class="w-100" style="height: 240px; object-fit: cover;" alt="No image">
+    {% endif %}
+</a>
                     
                     <div class="date-badge">
                         <span class="day">{{ tin.ngay_dang|date:"d" }}</span>
