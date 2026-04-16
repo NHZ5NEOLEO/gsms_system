@@ -1,17 +1,18 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-primary">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top shadow-sm border-bottom border-primary no-print">
     <div class="container-fluid px-4">
-        <a class="navbar-brand fw-bold text-primary" href="{% url 'pos_xang' %}">
+        <a class="navbar-brand fw-bold text-primary" href="{% url 'bao_cao_tram' %}">
             <i class="fas fa-chart-line"></i> BÁO CÁO CỬA HÀNG TRƯỞNG
         </a>
         <div class="d-flex align-items-center ms-auto">
-            <a href="{% url 'pos_xang' %}" class="btn btn-outline-light btn-sm me-3">
-                <i class="fas fa-arrow-left"></i> Quay lại POS Bơm Xăng
+            <a href="{% url 'trang_chu' %}" class="btn btn-outline-light btn-sm me-3">
+                <i class="fas fa-home"></i> Quay lại Trang chủ
             </a>
             <span class="text-white border-start ps-3">
-                Trưởng trạm: <strong>{{ user.username }}</strong>
+                Trưởng trạm: <strong class="text-warning">{{ user.full_name|default:user.username }}</strong>
             </span>
         </div>
     </div>
@@ -19,154 +20,215 @@
 {% endblock %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="container py-3 print-container">
+    <div class="d-flex justify-content-between align-items-center mb-3 border-bottom pb-2 print-header">
         <div>
-            <h2 class="text-primary fw-bold mb-0"><i class="fas fa-store"></i> {{ tram.ten_tram }}</h2>
-            <p class="text-muted mb-0">Báo cáo tài chính - Ngày: {{ ngay_bao_cao|date:"d/m/Y" }}</p>
+            <h3 class="text-primary fw-bold mb-0"><i class="fas fa-store"></i> {{ tram.ten_tram }}</h3>
+            <p class="text-muted mb-0 fs-6">Báo cáo tài chính & Tồn kho - Ngày: <strong class="text-dark">{{ ngay_bao_cao|date:"d/m/Y" }}</strong></p>
         </div>
-        <div>
-            <button class="btn btn-danger shadow-sm me-2" data-bs-toggle="modal" data-bs-target="#yeuCauModal">
-                <i class="fas fa-truck-loading"></i> Gửi Lệnh Nhập Hàng
+        
+        {# ========================================== #}
+        {# KHU VỰC NÚT BẤM CÔNG CỤ CỦA TRƯỞNG TRẠM #}
+        {# ========================================== #}
+        <div class="no-print d-flex gap-2">
+            <button class="btn btn-danger btn-sm shadow-sm fw-bold" data-bs-toggle="modal" data-bs-target="#yeuCauModal">
+                <i class="fas fa-truck-loading me-1"></i> Xin Cấp Hàng
             </button>
-            <button class="btn btn-success shadow-sm" onclick="window.print()"><i class="fas fa-print"></i> In Báo Cáo</button>
+            
+            <a href="{% url 'xuat_excel_tram' %}" class="btn btn-success btn-sm shadow-sm fw-bold text-white">
+                <i class="fas fa-file-excel me-1"></i> Tải Excel
+            </a>
+            
+            <button class="btn btn-secondary btn-sm shadow-sm fw-bold" onclick="window.print()">
+                <i class="fas fa-print me-1"></i> Lưu PDF / In
+            </button>
         </div>
+    </div>
 
-        <div class="modal fade" id="yeuCauModal" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <form method="POST" action="{% url 'tao_yeu_cau_nhap_hang' %}">
-                        {% csrf_token %}
-                        <div class="modal-header bg-danger text-white">
-                            <h5 class="modal-title"><i class="fas fa-paper-plane"></i> LẬP LỆNH YÊU CẦU NHẬP HÀNG</h5>
-                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+    {# --- MODAL XIN CẤP HÀNG --- #}
+    <div class="modal fade no-print" id="yeuCauModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4">
+                <form method="POST" action="{% url 'tao_yeu_cau_nhap_hang' %}">
+                    {% csrf_token %}
+                    <div class="modal-header bg-danger text-white border-0 py-2">
+                        <h6 class="modal-title fw-bold"><i class="fas fa-paper-plane me-2"></i> LẬP LỆNH YÊU CẦU NHẬP HÀNG</h6>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body p-3 bg-light">
+                        <div class="alert alert-warning small border-warning py-2 mb-3">
+                            <i class="fas fa-info-circle text-danger"></i> Yêu cầu này sẽ được gửi trực tiếp đến Hệ thống Điều phối GIS.
                         </div>
-                        <div class="modal-body">
-                            <div class="alert alert-warning">
-                                Yêu cầu này sẽ được gửi trực tiếp đến Hệ thống Điều phối GIS của Tổng Công Ty.
-                            </div>
-                            <div class="mb-3">
-                                <label class="fw-bold text-dark">1. Chọn loại nhiên liệu sắp hết:</label>
-                                <select name="loai_nhien_lieu" class="form-select border-danger" required>
-                                    <option value="">-- Chọn loại nhiên liệu --</option>
-                                    <option value="A95">Xăng RON 95-III</option>
-                                    <option value="E5">Xăng E5 RON 92</option>
-                                    <option value="E10">Xăng Sinh Học E10</option>
-                                    <option value="DO">Dầu DO 0.05S</option>
-                                </select>
-                            </div>
-                            <div class="mb-3">
-                                <label class="fw-bold text-dark">2. Số lượng cần nhập (Lít):</label>
-                                <input type="number" name="so_luong" class="form-control" required min="1000" placeholder="VD: 5000">
-                            </div>
-                            <div class="mb-3">
-                                <label class="fw-bold text-dark">3. Ghi chú cho Giám đốc (Nếu có):</label>
-                                <textarea name="ghi_chu" class="form-control" rows="2" placeholder="VD: Bồn A95 sắp cạn, xin cấp gấp trong chiều nay..."></textarea>
-                            </div>
+                        <div class="mb-2">
+                            <label class="fw-bold text-dark small mb-1">1. Chọn loại nhiên liệu sắp hết:</label>
+                            <select name="loai_nhien_lieu" class="form-select border-danger shadow-sm" required>
+                                <option value="">-- Click để chọn --</option>
+                                <option value="A95">Xăng RON 95-III</option>
+                                <option value="E5">Xăng E5 RON 92</option>
+                                <option value="E10">Xăng Sinh Học E10</option>
+                                <option value="DO">Dầu DO 0.05S</option>
+                            </select>
                         </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                            <button type="submit" class="btn btn-danger fw-bold"><i class="fas fa-paper-plane"></i> GỬI YÊU CẦU NGAY</button>
+                        <div class="mb-2">
+                            <label class="fw-bold text-dark small mb-1">2. Số lượng cần nhập (Lít):</label>
+                            <input type="number" name="so_luong" class="form-control shadow-sm text-primary fw-bold" required min="1000" placeholder="VD: 5000">
                         </div>
-                    </form>
-                </div>
+                        <div class="mb-2">
+                            <label class="fw-bold text-dark small mb-1">3. Ghi chú (Nếu có):</label>
+                            <textarea name="ghi_chu" class="form-control shadow-sm" rows="2" placeholder="VD: Bồn A95 sắp cạn..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light border-0 py-2">
+                        <button type="submit" class="btn btn-danger w-100 fw-bold shadow-sm">GỬI YÊU CẦU NGAY</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
 
-    <div class="row mb-4">
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 border-start border-primary border-4 h-100">
-                <div class="card-body">
-                    <h6 class="text-muted fw-bold">DOANH THU TRONG NGÀY</h6>
-                    <h3 class="text-primary fw-bold">{{ doanh_thu_hom_nay|floatformat:0 }} VNĐ</h3>
-                    <small class="text-success"><i class="fas fa-arrow-up"></i> Cập nhật thời gian thực</small>
+    {# --- CÁC THẺ THỐNG KÊ NHANH --- #}
+    <div class="row mb-3">
+        <div class="col-md-4 mb-2 mb-md-0">
+            <div class="card shadow-sm border-0 border-start border-primary border-5 h-100 bg-white">
+                <div class="card-body py-2">
+                    <h6 class="text-muted fw-bold small mb-1">DOANH THU TRONG NGÀY</h6>
+                    <h3 class="text-primary fw-bold mb-0">{{ doanh_thu_hom_nay|default:0|floatformat:0|intcomma }} VNĐ</h3>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-2 mb-md-0">
+            <div class="card shadow-sm border-0 border-start border-success border-5 h-100 bg-white">
+                <div class="card-body py-2">
+                    <h6 class="text-muted fw-bold small mb-1">TỔNG LÍT XUẤT BÁN</h6>
+                    <h3 class="text-success fw-bold mb-0">{{ san_luong_hom_nay|default:0|floatformat:1|intcomma }} Lít</h3>
                 </div>
             </div>
         </div>
         <div class="col-md-4">
-            <div class="card shadow-sm border-0 border-start border-success border-4 h-100">
-                <div class="card-body">
-                    <h6 class="text-muted fw-bold">TỔNG LÍT XUẤT BÁN</h6>
-                    <h3 class="text-success fw-bold">{{ san_luong_hom_nay|floatformat:1 }} Lít</h3>
-                    <small class="text-muted">Từ {{ so_gd_hom_nay }} lượt giao dịch</small>
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 border-start border-warning border-4 h-100">
-                <div class="card-body">
-                    <h6 class="text-muted fw-bold">SỐ LƯỢNG NHÂN VIÊN CA</h6>
-                    <h3 class="text-warning fw-bold">{{ doanh_thu_nhan_vien|length }} Người</h3>
-                    <small class="text-muted">Đang phát sinh giao dịch</small>
+            <div class="card shadow-sm border-0 border-start border-warning border-5 h-100 bg-white">
+                <div class="card-body py-2">
+                    <h6 class="text-muted fw-bold small mb-1">SỐ LƯỢNG NHÂN VIÊN CA</h6>
+                    <h3 class="text-warning text-dark fw-bold mb-0">{{ doanh_thu_nhan_vien|length }} Người</h3>
                 </div>
             </div>
         </div>
     </div>
 
     <div class="row">
-        <div class="col-md-6 mb-4">
+        {# --- BẢNG TỒN KHO BỒN CHỨA --- #}
+        <div class="col-md-6 mb-3">
             <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-dark text-white fw-bold">
-                    <i class="fas fa-database text-warning"></i> KIỂM KÊ TỒN KHO
+                <div class="card-header bg-dark text-white fw-bold py-2">
+                    <i class="fas fa-database text-warning me-2"></i> KIỂM KÊ TỒN KHO
                 </div>
-                <div class="card-body">
+                <div class="card-body bg-white p-3 custom-scrollbar scrollable-box">
                     {% for bon in ds_bon %}
                         <div class="mb-3">
                             <div class="d-flex justify-content-between mb-1">
-                                <strong class="text-dark">{{ bon.ten_bon }} ({{ bon.get_loai_nhien_lieu_display }})</strong>
-                                <span class="fw-bold {% if bon.phan_tram < 20 %}text-danger{% else %}text-success{% endif %}">
-                                    {{ bon.muc_hien_tai|floatformat:0 }}L / {{ bon.suc_chua_toi_da|floatformat:0 }}L
+                                <strong class="text-dark">{{ bon.ten_bon }} <span class="text-muted small">({{ bon.get_loai_nhien_lieu_display }})</span></strong>
+                                <span class="fw-bold small {% if bon.phan_tram < 20 %}text-danger{% else %}text-success{% endif %}">
+                                    {{ bon.muc_hien_tai|floatformat:0|intcomma }}L / {{ bon.suc_chua_toi_da|floatformat:0|intcomma }}L
                                 </span>
                             </div>
-                            <div class="progress" style="height: 10px;">
+                            <div class="progress shadow-sm" style="height: 10px; border-radius: 5px;">
                                 <div class="progress-bar {% if bon.phan_tram < 20 %}bg-danger progress-bar-striped progress-bar-animated{% else %}bg-success{% endif %}" 
                                      role="progressbar" style="width: {{ bon.phan_tram }}%;">
                                 </div>
                             </div>
-                            {% if bon.phan_tram < 20 %}
-                                <small class="text-danger fw-bold fst-italic"><i class="fas fa-exclamation-triangle"></i> Sắp hết hàng - Đề nghị làm lệnh nhập!</small>
-                            {% endif %}
+                        </div>
+                    {% empty %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-gas-pump fa-2x mb-2 opacity-25"></i>
+                            <p class="small mb-0">Trạm chưa có bồn chứa.</p>
                         </div>
                     {% endfor %}
                 </div>
             </div>
         </div>
 
-        <div class="col-md-6 mb-4">
+        {# --- BẢNG XẾP HẠNG NHÂN VIÊN --- #}
+        <div class="col-md-6 mb-3">
             <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-primary text-white fw-bold">
-                    <i class="fas fa-users text-light"></i> HIỆU SUẤT NHÂN VIÊN (CA HÔM NAY)
+                <div class="card-header bg-primary text-white fw-bold py-2">
+                    <i class="fas fa-users text-light me-2"></i> HIỆU SUẤT NHÂN VIÊN CA
                 </div>
-                <div class="card-body p-0">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Nhân viên</th>
-                                <th>Số hóa đơn</th>
-                                <th class="text-end">Doanh thu mang lại</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for nv in doanh_thu_nhan_vien %}
-                            <tr>
-                                <td>
-                                    <i class="fas fa-user-circle text-secondary fs-5 align-middle me-1"></i> 
-                                    <strong>{{ nv.nhan_vien__full_name|default:nv.nhan_vien__username }}</strong>
-                                </td>
-                                <td><span class="badge bg-info text-dark">{{ nv.so_don }} đơn</span></td>
-                                <td class="text-end fw-bold text-primary">{{ nv.tong_ban|floatformat:0 }} đ</td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="3" class="text-center text-muted py-4">Chưa có giao dịch nào hôm nay.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="card-body p-0 bg-white custom-scrollbar scrollable-box">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0 table-sm">
+                            <thead class="table-light text-muted sticky-top" style="z-index: 1;">
+                                <tr>
+                                    <th class="ps-3 py-2 border-0 small">NHÂN VIÊN BƠM</th>
+                                    <th class="py-2 text-center border-0 small">SỐ ĐƠN</th>
+                                    <th class="pe-3 py-2 text-end border-0 small">DOANH THU</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for nv in doanh_thu_nhan_vien %}
+                                <tr>
+                                    <td class="ps-3 py-2">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-user-circle text-secondary fs-5 me-2"></i> 
+                                            <strong class="text-dark small">{{ nv.nhan_vien__full_name|default:nv.nhan_vien__username }}</strong>
+                                        </div>
+                                    </td>
+                                    <td class="py-2 text-center"><span class="badge bg-info text-dark rounded-pill">{{ nv.so_don }}</span></td>
+                                    <td class="pe-3 py-2 text-end fw-bold text-primary small">{{ nv.tong_ban|floatformat:0|intcomma }} đ</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="3" class="text-center text-muted py-4">
+                                        <i class="fas fa-receipt fa-2x mb-2 opacity-25"></i>
+                                        <p class="small mb-0">Chưa có giao dịch nào hôm nay.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+    /* ẨN FOOTER KHỎI TRANG BÁO CÁO */
+    .site-footer { display: none !important; }
+
+    /* KHUNG SCROLL ĐÃ BỊ ÉP LÙN XUỐNG CÒN 280PX */
+    .scrollable-box {
+        max-height: 280px; 
+        overflow-y: auto;
+    }
+    
+    /* LÀM ĐẸP THANH CUỘN (SCROLLBAR) CHỈ CÓ TRÊN TRÌNH DUYỆT WEBKIT (CHROME/EDGE/SAFARI) */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+    /* CSS CHUẨN ĐỂ IN BÁO CÁO GIẤY A4 */
+    @media print {
+        body { background-color: white !important; }
+        
+        /* Ẩn mọi thứ rườm rà */
+        .no-print, nav, footer, .btn { display: none !important; }
+        
+        /* GỠ BỎ KHUNG SCROLL ĐỂ MÁY IN IN RA HẾT DỮ LIỆU */
+        .scrollable-box { max-height: none !important; overflow: visible !important; }
+        
+        /* Chỉnh lại card để in không bị đen thui */
+        .card { border: 1px solid #ccc !important; box-shadow: none !important; height: auto !important; }
+        .card-header { background-color: #f8f9fa !important; color: black !important; border-bottom: 2px solid #000; }
+        .text-white, .text-light { color: black !important; }
+        .bg-dark, .bg-primary { background-color: transparent !important; }
+        .badge { border: 1px solid #000; color: #000 !important; }
+        
+        /* Reset container width */
+        .print-container { width: 100% !important; max-width: 100% !important; padding: 0 !important; margin: 0 !important; }
+        
+        /* Fix lỗi dính trang khi in */
+        .row { page-break-inside: avoid; }
+    }
+</style>
 {% endblock %}

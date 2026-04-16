@@ -103,6 +103,9 @@ class BonChua(models.Model):
 # ==========================================
 # 4. HÓA ĐƠN & CHI TIẾT (Bán hàng)
 # ==========================================
+# ==========================================
+# 4. HÓA ĐƠN & CHI TIẾT (Bán hàng)
+# ==========================================
 class HoaDon(models.Model):
     PT_THANH_TOAN = (
         ('tien_mat', 'Tiền mặt'),
@@ -110,10 +113,21 @@ class HoaDon(models.Model):
         ('the', 'Quẹt thẻ POS'),
     )
     ma_hd = models.CharField(max_length=50, unique=True, verbose_name="Mã HĐ")
+    
+    # Người thu ngân
     nhan_vien = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name="Nhân viên thu ngân")
+    
+    # [THÊM MỚI] - Trói Hóa Đơn vào Ca Làm Việc để lúc chốt ca tính tiền cho chuẩn
+    ca_lam_viec = models.ForeignKey('CaLamViec', on_delete=models.CASCADE, related_name='cac_hoa_don', null=True, blank=True, verbose_name="Thuộc Ca Làm Việc")
+    
     thoi_gian = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian")
     tong_tien = models.FloatField(verbose_name="Tổng tiền")
     
+    # Thông tin xuất VAT (Hóa đơn điện tử)
+    yeu_cau_vat = models.BooleanField(default=False)
+    ma_so_thue = models.CharField(max_length=20, null=True, blank=True)
+    ten_cong_ty = models.CharField(max_length=255, null=True, blank=True)
+    email_nhan_hd = models.EmailField(max_length=255, null=True, blank=True)
     phuong_thuc_thanh_toan = models.CharField(max_length=20, choices=PT_THANH_TOAN, default='tien_mat', verbose_name="Thanh toán bằng")
     
     def __str__(self): 
@@ -331,3 +345,35 @@ def tao_bon_mac_dinh_cho_tram_moi(sender, instance, created, **kwargs):
         BonChua.objects.create(tram=instance, ten_bon="Bồn E5 Mặc định", loai_nhien_lieu="E5", suc_chua_toi_da=10000, muc_hien_tai=0)
         BonChua.objects.create(tram=instance, ten_bon="Bồn DO Mặc định", loai_nhien_lieu="DO", suc_chua_toi_da=20000, muc_hien_tai=0)
         print(f"✅ Đã tự động tạo 3 bồn chứa mặc định cho trạm: {instance.ten_tram}")
+
+# ==========================================
+# 11. NGHIỆP VỤ CA LÀM VIỆC & NỘP TIỀN
+# ==========================================
+class CaLamViec(models.Model):
+    TRANG_THAI_CA = (
+        ('dang_mo', 'Đang làm việc'),
+        ('cho_duyet', 'Đã chốt - Chờ nộp tiền'), # <--- THÊM TRẠNG THÁI NÀY
+        ('da_chot', 'Đã nộp tiền & Hoàn tất'),
+    )
+    nhan_vien = models.ForeignKey('User', on_delete=models.CASCADE)
+    tram = models.ForeignKey(TramXang, on_delete=models.CASCADE, null=True, blank=True)
+    thoi_gian_bat_dau = models.DateTimeField(auto_now_add=True)
+    thoi_gian_ket_thuc = models.DateTimeField(null=True, blank=True)
+    
+    tien_dau_ca = models.DecimalField(max_digits=12, decimal_places=0, default=0)
+    so_loc_dau_ca = models.FloatField(default=0)
+    
+    # --- THÊM 2 TRƯỜNG NÀY ĐỂ LƯU SỐ LIỆU KHI NHÂN VIÊN BẤM CHỐT CA ---
+    tong_tien_thu = models.DecimalField(max_digits=12, decimal_places=0, default=0, verbose_name="Tổng doanh thu ca")
+    tong_so_lit_ban = models.FloatField(default=0, verbose_name="Tổng số lít đã bán")
+    
+    trang_thai = models.CharField(max_length=20, choices=TRANG_THAI_CA, default='dang_mo')
+
+    def __str__(self):
+        return f"Ca của {self.nhan_vien.username} - {self.get_trang_thai_display()}"
+
+class NopTienGiuaCa(models.Model):
+    ca_lam_viec = models.ForeignKey(CaLamViec, on_delete=models.CASCADE, related_name='cac_lan_nop')
+    so_tien = models.DecimalField(max_digits=12, decimal_places=0)
+    nguoi_nhan = models.CharField(max_length=100)
+    thoi_gian = models.DateTimeField(auto_now_add=True)
