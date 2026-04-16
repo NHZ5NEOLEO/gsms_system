@@ -72,21 +72,23 @@
             <h5 class="mb-0 fw-bold"><i class="fas fa-store-alt text-warning"></i> CHI TIẾT DOANH THU & LỢI NHUẬN TỪNG TRẠM</h5>
             
             <div class="d-flex align-items-center">
-                <form method="GET" class="d-flex me-3">
-                    <div class="input-group input-group-sm">
-                        <input type="text" name="q" value="{{ tu_khoa }}" class="form-control" placeholder="Tên trạm xăng..." style="width: 200px;">
-                        <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Tìm</button>
-                        {% if tu_khoa %}
-                            <a href="{% url 'admin_dashboard' %}" class="btn btn-secondary"><i class="fas fa-times"></i> Xóa</a>
-                        {% endif %}
-                    </div>
-                </form>
-                {% if user.role == 'admin' or user.role == 'ke_toan' or user.is_superuser %}
-                <a href="{% url 'xuat_excel_doanh_thu' %}?q={{ tu_khoa }}" class="btn btn-success btn-sm fw-bold shadow-sm">
-                    <i class="fas fa-file-excel"></i> XUẤT EXCEL
-                </a>
-                {% endif %}
-            </div>
+    <form method="GET" class="d-flex me-3">
+        </form>
+    
+    {% if user.role == 'admin' or user.role == 'ke_toan' or user.is_superuser %}
+    <button type="button" class="btn btn-info btn-sm fw-bold shadow-sm me-2 text-white" data-bs-toggle="modal" data-bs-target="#importExcelModal">
+        <i class="fas fa-file-import"></i> NHẬP EXCEL
+    </button>
+    
+    <button onclick="xuatPDF()" class="btn btn-danger btn-sm fw-bold shadow-sm me-2">
+        <i class="fas fa-file-pdf"></i> XUẤT PDF
+    </button>
+
+    <a href="{% url 'xuat_excel_doanh_thu' %}?q={{ tu_khoa }}" class="btn btn-success btn-sm fw-bold shadow-sm">
+        <i class="fas fa-file-excel"></i> XUẤT EXCEL
+    </a>
+    {% endif %}
+</div>
         </div>
         
         <div class="card-body p-0">
@@ -103,7 +105,7 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {% for row in bang_doanh_thu %}
+                        {% for row in page_doanh_thu %}
                         <tr>
                             <td class="text-center fw-bold text-muted align-middle">{{ forloop.counter }}</td>
                             <td>
@@ -119,11 +121,29 @@
                         <tr>
                             <td colspan="6" class="text-center text-danger py-4 fw-bold">
                                 <i class="fas fa-search fa-2x mb-2 opacity-50"></i><br>
-                                Không tìm thấy trạm xăng nào khớp với từ khóa "{{ tu_khoa }}"!
+                                Không tìm thấy dữ liệu!
                             </td>
                         </tr>
                         {% endfor %}
                     </tbody>
+                </table>
+            </div>
+            
+            <div class="d-flex justify-content-end p-3 border-top">
+                <ul class="pagination pagination-sm mb-0">
+                    {% if page_doanh_thu.has_previous %}
+                    <li class="page-item"><a class="page-link" href="?page_dt={{ page_doanh_thu.previous_page_number }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">Trước</a></li>
+                    {% endif %}
+                    
+                    {% for i in page_doanh_thu.paginator.page_range %}
+                    <li class="page-item {% if page_doanh_thu.number == i %}active{% endif %}"><a class="page-link" href="?page_dt={{ i }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">{{ i }}</a></li>
+                    {% endfor %}
+                    
+                    {% if page_doanh_thu.has_next %}
+                    <li class="page-item"><a class="page-link" href="?page_dt={{ page_doanh_thu.next_page_number }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">Sau</a></li>
+                    {% endif %}
+                </ul>
+            </div>
                 </table>
             </div>
         </div>
@@ -195,63 +215,44 @@
         </div>
         
         <div class="card-body bg-light p-4">
-            {% regroup ds_bon|dictsort:"tram.ten_tram" by tram.ten_tram as grouped_tanks %}
-
             <div class="accordion" id="accordionTanks">
-                {% for nhom in grouped_tanks %}
+                {% for nhom in page_ton_kho %}
                 <div class="accordion-item border-0 mb-3 shadow-sm rounded overflow-hidden">
                     <h2 class="accordion-header">
                         <button class="accordion-button {% if not forloop.first %}collapsed{% endif %} fw-bold fs-5 text-primary bg-white" 
                                 type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
-                            <i class="fas fa-map-marker-alt text-danger me-2"></i> {{ nhom.grouper }}
-                            <span class="badge bg-secondary ms-3 rounded-pill">{{ nhom.list|length }} Bồn chứa</span>
+                            <i class="fas fa-map-marker-alt text-danger me-2"></i> {{ nhom.tram }}
+                            <span class="badge bg-secondary ms-3 rounded-pill">{{ nhom.bons|length }} Bồn chứa</span>
                         </button>
                     </h2>
                     
                     <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" data-bs-parent="#accordionTanks">
                         <div class="accordion-body bg-light border-top">
                             <div class="row">
-                                {% for bon in nhom.list %}
+                                {% for bon in nhom.bons %}
                                 <div class="col-md-4 mb-4">
                                     <div class="card h-100 border-0 shadow-sm" style="background: #f8f9fa; border-radius: 12px; border-bottom: 5px solid {% if bon.phan_tram < 20 %}#dc3545{% elif bon.phan_tram < 50 %}#ffc107{% else %}#198754{% endif %} !important;">
                                         <div class="card-body p-4">
-                                            
                                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                                <h6 class="fw-bold text-dark mb-0 fs-5">
-                                                    <i class="fas fa-database text-secondary me-2"></i>{{ bon.ten_bon }}
-                                                </h6>
-                                                <span class="badge bg-white text-dark border shadow-sm px-3 py-2 rounded-pill">
-                                                    {{ bon.get_loai_nhien_lieu_display }}
-                                                </span>
+                                                <h6 class="fw-bold text-dark mb-0 fs-5"><i class="fas fa-database text-secondary me-2"></i>{{ bon.ten_bon }}</h6>
+                                                <span class="badge bg-white text-dark border shadow-sm px-3 py-2 rounded-pill">{{ bon.get_loai_nhien_lieu_display }}</span>
                                             </div>
                                             
                                             <div class="progress position-relative mb-3 shadow-sm" style="height: 32px; background-color: #e2e8f0; border-radius: 8px;">
-                                                <div class="progress-bar {% if bon.phan_tram < 20 %}bg-danger progress-bar-striped progress-bar-animated{% elif bon.phan_tram < 50 %}bg-warning{% else %}bg-success{% endif %}" 
-                                                     role="progressbar" 
-                                                     style="width: {{ bon.phan_tram|floatformat:0 }}%; transition: width 1s ease-in-out;">
-                                                </div>
-                                                
-                                                <div class="position-absolute w-100 h-100 d-flex justify-content-center align-items-center fw-bold fs-6" 
-                                                     style="top: 0; left: 0; pointer-events: none; 
-                                                            color: {% if bon.phan_tram < 20 %}#fff{% elif bon.phan_tram < 50 %}#000{% else %}#fff{% endif %}; 
-                                                            text-shadow: {% if bon.phan_tram < 50 and bon.phan_tram >= 20 %}none{% else %}0px 1px 3px rgba(0,0,0,0.6){% endif %};">
-                                                    {{ bon.phan_tram|floatformat:1 }}%
-                                                </div>
+                                                <div class="progress-bar {% if bon.phan_tram < 20 %}bg-danger progress-bar-striped progress-bar-animated{% elif bon.phan_tram < 50 %}bg-warning{% else %}bg-success{% endif %}" role="progressbar" style="width: {{ bon.phan_tram|floatformat:0 }}%;"></div>
+                                                <div class="position-absolute w-100 h-100 d-flex justify-content-center align-items-center fw-bold fs-6" style="top: 0; left: 0; pointer-events: none; color: {% if bon.phan_tram < 20 %}#fff{% elif bon.phan_tram < 50 %}#000{% else %}#fff{% endif %};">{{ bon.phan_tram|floatformat:1 }}%</div>
                                             </div>
 
                                             <div class="d-flex justify-content-between align-items-end mt-2">
                                                 <div>
                                                     <span class="small text-muted text-uppercase fw-bold d-block mb-1">Hiện tại</span>
-                                                    <span class="fw-bold fs-5 {% if bon.phan_tram < 20 %}text-danger blink-animation{% else %}text-dark{% endif %}">
-                                                        {{ bon.muc_hien_tai|floatformat:0 }} <small>Lít</small>
-                                                    </span>
+                                                    <span class="fw-bold fs-5 {% if bon.phan_tram < 20 %}text-danger blink-animation{% else %}text-dark{% endif %}">{{ bon.muc_hien_tai|floatformat:0 }} <small>Lít</small></span>
                                                 </div>
                                                 <div class="text-end">
                                                     <span class="small text-muted text-uppercase fw-bold d-block mb-1">Sức chứa</span>
                                                     <span class="fw-bold text-secondary fs-6">{{ bon.suc_chua_toi_da|floatformat:0 }} <small>Lít</small></span>
                                                 </div>
                                             </div>
-
                                         </div>
                                     </div>
                                 </div>
@@ -261,9 +262,51 @@
                     </div>
                 </div>
                 {% empty %}
-                <div class="text-center text-muted py-4">Chưa có dữ liệu bồn chứa trong hệ thống.</div>
+                <div class="text-center text-muted py-4">Chưa có dữ liệu bồn chứa.</div>
                 {% endfor %}
             </div>
+
+            <div class="d-flex justify-content-center mt-4">
+                <ul class="pagination shadow-sm mb-0">
+                    {% if page_ton_kho.has_previous %}
+                    <li class="page-item"><a class="page-link fw-bold" href="?page_tk={{ page_ton_kho.previous_page_number }}">Trang Trước</a></li>
+                    {% endif %}
+                    
+                    {% for i in page_ton_kho.paginator.page_range %}
+                    <li class="page-item {% if page_ton_kho.number == i %}active{% endif %}"><a class="page-link fw-bold" href="?page_tk={{ i }}">{{ i }}</a></li>
+                    {% endfor %}
+                    
+                    {% if page_ton_kho.has_next %}
+                    <li class="page-item"><a class="page-link fw-bold" href="?page_tk={{ page_ton_kho.next_page_number }}">Trang Sau</a></li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="importExcelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg">
+            <form method="POST" action="{% url 'nhap_excel' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-upload me-2"></i>Nhập Dữ Liệu Từ Excel</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-warning small">
+                        <strong>Lưu ý:</strong> File upload phải là định dạng <b>.xlsx</b>. Cấu trúc cột phải khớp với quy định của hệ thống (Ví dụ: Cột A là Tên, Cột B là Địa chỉ...).
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Chọn file Excel tải lên <span class="text-danger">*</span></label>
+                        <input class="form-control" type="file" name="file_excel" accept=".xlsx, .xls" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-info text-white fw-bold"><i class="fas fa-check me-2"></i>Tiến hành Nhập</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -346,5 +389,25 @@
 
         window.updateCharts('quarter');
     });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<script>
+    function xuatPDF() {
+        // Lấy đúng cái phần giao diện bảng để in ra PDF
+        // (Bạn nhớ thêm id="bang-doanh-thu-container" vào thẻ div bọc ngoài cái table nhé)
+        var element = document.querySelector('.table-responsive'); 
+        
+        var opt = {
+            margin:       0.5,
+            filename:     'Bao_Cao_Doanh_Thu.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+        };
+
+        // Bắt đầu tạo và tải PDF
+        html2pdf().set(opt).from(element).save();
+    }
 </script>
 {% endblock %}

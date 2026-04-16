@@ -49,7 +49,7 @@ urlpatterns = [
     path('admin/duyet-yeu-cau/<int:yc_id>/', views.duyet_yeu_cau, name='duyet_yeu_cau'),
     path('admin/quan-ly-gia/', views.quan_ly_gia, name='quan_ly_gia'),
     path('admin/export-excel/', views.xuat_excel_doanh_thu, name='xuat_excel_doanh_thu'),
-
+path('admin/import-excel/', views.nhap_excel, name='nhap_excel'),
     # ==========================================
     # 5. KHU VỰC QUẢN TRỊ VIÊN (ADMIN - CRUD)
     # ==========================================
