@@ -1481,7 +1481,6 @@ def gui_danh_gia_tram(request):
             messages.error(request, f"Lỗi gửi đánh giá: {e}")
             
     return redirect('trang_chu')
-<<<<<<< HEAD
 @login_required
 def mo_ca(request):
     if request.method == 'POST':
@@ -1569,7 +1568,6 @@ def xuat_excel_tram(request):
         writer.writerow([ten, username, so_don, tong_ban])
 
     return response
-=======
 
 
 @login_required
@@ -1645,4 +1643,4 @@ def nhap_excel(request):
             messages.error(request, f'Lỗi hệ thống khi đọc file Excel: {str(e)}')
 
     return redirect('admin_dashboard')
->>>>>>> 459ef4b08061a54296e17a23e42c0a97f7ca9639
+
