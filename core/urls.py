@@ -39,6 +39,9 @@ urlpatterns = [
     path('nhan-vien/chot-ca/', views.staff_chot_ca, name='staff_chot_ca'),
     path('nhan-vien/bao-cao-tram/', views.bao_cao_tram, name='bao_cao_tram'),
     path('nhan-vien/xin-cap-xang/', views.tao_yeu_cau_nhap_hang, name='tao_yeu_cau_nhap_hang'),
+    path('nhan-vien/mo-ca/', views.mo_ca, name='mo_ca'),
+    path('nhan-vien/nop-tien/', views.nop_tien_giua_ca, name='nop_tien_giua_ca'),
+    path('nhan-vien/xuat-excel-tram/', views.xuat_excel_tram, name='xuat_excel_tram'),
 
     # ==========================================
     # 4. KHU VỰC QUẢN TRỊ VIÊN (ADMIN - TỔNG QUAN)

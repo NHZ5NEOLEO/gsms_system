@@ -1,3 +1,4 @@
+import csv
 import json
 from urllib import request
 import uuid
@@ -29,9 +30,9 @@ from django.db.models import Avg, Count, Q
 
 # === IMPORT MODELS ĐÃ ĐƯỢC CẬP NHẬT (Xóa DanhMucDichVu, SanPhamDichVu) ===
 from .models import (
-    TramXang, BonChua, NhaCungCap, HoaDon, ChiTietHoaDon, 
+    NopTienGiuaCa, TramXang, BonChua, NhaCungCap, HoaDon, ChiTietHoaDon, 
     TinTuc, DanhMuc, SanPham, PhieuNhap, YeuCauNhapHang, BangGiaNhienLieu, 
-    DanhGiaTram, DoiTacB2B, HoSoUngVien, LienHeGopY
+    DanhGiaTram, DoiTacB2B, HoSoUngVien, LienHeGopY,CaLamViec
 )
 
 User = get_user_model()
@@ -229,102 +230,288 @@ def pos_xang(request):
         return redirect('login')
 
     tram_cua_toi = user.tram_xang
-    ds_bon_raw = BonChua.objects.filter(tram=tram_cua_toi)
+    ds_bon = BonChua.objects.filter(tram=tram_cua_toi)
 
-    ds_bon = []
-    bon_can_canh_bao = []
-    for b in ds_bon_raw:
-        if b.suc_chua_toi_da > 0 and (b.muc_hien_tai / b.suc_chua_toi_da) * 100 < 20:
-            bon_can_canh_bao.append(b)
-            
-        # Đã xóa dòng gán b.gia_ban_hien_tai ở đây để tránh lỗi AttributeError
-        ds_bon.append(b)
+    # ==========================================
+    # BƯỚC 1: TÌM HOẶC TẠO CA MỚI TRƯỚC
+    # ==========================================
+    ca_hien_tai = CaLamViec.objects.filter(nhan_vien=user, trang_thai='dang_mo').first()
+    
+    if not ca_hien_tai:
+        ca_hien_tai = CaLamViec.objects.create(
+            nhan_vien=user,
+            tram=tram_cua_toi,
+            trang_thai='dang_mo',
+            tien_dau_ca=0, 
+            so_loc_dau_ca=0
+        )
+
+    # ==========================================
+    # BƯỚC 2: CHỈ LẤY LỊCH SỬ CỦA ĐÚNG CA NÀY
+    # ==========================================
+    # Sếp lưu ý: Thay 'thoi_gian_bat_dau' bằng đúng tên cột thời gian tạo trong model CaLamViec nhé 
+    # (Có thể là thoi_gian_tao, created_at, v.v...)
+    thoi_gian_ca_mo = ca_hien_tai.thoi_gian_bat_dau 
 
     if user.role == 'truong_tram':
-        lich_su = HoaDon.objects.filter(nhan_vien__tram_xang=tram_cua_toi).order_by('-thoi_gian')[:20]
+        # Lọc Hóa đơn có thời gian >= thời gian mở ca
+        lich_su = HoaDon.objects.filter(
+            nhan_vien__tram_xang=tram_cua_toi,
+            thoi_gian__gte=thoi_gian_ca_mo  
+        ).order_by('-thoi_gian')[:20]
     else:
-        lich_su = HoaDon.objects.filter(nhan_vien=user).order_by('-thoi_gian')[:10]
+        lich_su = HoaDon.objects.filter(
+            nhan_vien=user,
+            thoi_gian__gte=thoi_gian_ca_mo  
+        ).order_by('-thoi_gian')[:10]
 
     return render(request, 'staff/pos_xang.html', {
         'tram': tram_cua_toi, 
         'ds_bon': ds_bon, 
-        'bon_can_canh_bao': bon_can_canh_bao, 
         'lich_su_ban': lich_su
     })
-
 @login_required
 def xu_ly_ban_hang(request):
     if request.method == 'POST':
+        # Chặn admin và kế toán thao tác bán hàng
         if request.user.role in ['admin', 'ke_toan'] or request.user.is_superuser: 
             return redirect('admin_dashboard')
             
         try:
+            # ====================================================
+            # [QUAN TRỌNG NHẤT]: KIỂM TRA CA LÀM VIỆC ĐANG MỞ
+            # ====================================================
+            ca_hien_tai = CaLamViec.objects.filter(nhan_vien=request.user, trang_thai='dang_mo').first()
+            if not ca_hien_tai:
+                messages.error(request, "Lỗi! Bạn chưa MỞ CA. Vui lòng nhấn 'Bắt đầu ca' trước khi bán hàng!")
+                return redirect('pos_xang')
+
+            # 1. Lấy dữ liệu cơ bản
             loai_nl = request.POST.get('loai_nhien_lieu')
             so_tien = float(request.POST.get('so_tien'))
             pt_thanh_toan = request.POST.get('phuong_thuc_thanh_toan', 'tien_mat')
             
+            # 2. Lấy dữ liệu yêu cầu xuất hóa đơn VAT
+            yeu_cau_vat = request.POST.get('yeu_cau_vat') == 'on'
+            mst = request.POST.get('mst', '')
+            ten_cong_ty = request.POST.get('ten_cong_ty', '')
+            email_nhan_hd = request.POST.get('email_nhan_hd', '')
+            
+            # 3. Tính toán số lượng
             gia_db = BangGiaNhienLieu.objects.filter(loai_nhien_lieu=loai_nl).first()
             don_gia = gia_db.gia_ban if gia_db else 20000
             so_lit = so_tien / don_gia
 
+            # 4. Xử lý giao dịch an toàn với transaction.atomic()
             with transaction.atomic(): 
-                bon = BonChua.objects.select_for_update().get(tram=request.user.tram_xang, loai_nhien_lieu=loai_nl)
+                # Khóa dòng dữ liệu bồn chứa để tránh race condition khi trừ tồn kho
+                bon = BonChua.objects.select_for_update().get(
+                    tram=request.user.tram_xang, 
+                    loai_nhien_lieu=loai_nl
+                )
+                
                 if bon.muc_hien_tai >= so_lit:
+                    # Trừ tồn kho bồn
                     bon.muc_hien_tai -= so_lit
                     bon.save()
                     
+                    # Tạo Hóa đơn kèm thông tin VAT (ĐÃ BỔ SUNG ca_lam_viec)
                     hd = HoaDon.objects.create(
                         ma_hd=f"HD-{timezone.now().strftime('%y%m%d%H%M%S')}-{request.user.id}", 
-                        nhan_vien=request.user, 
+                        nhan_vien=request.user,
+                        ca_lam_viec=ca_hien_tai, # <--- SỢI DÂY TRÓI Ở ĐÂY NÀY SẾP!
                         tong_tien=so_tien,
-                        phuong_thuc_thanh_toan=pt_thanh_toan
+                        phuong_thuc_thanh_toan=pt_thanh_toan,
+                        yeu_cau_vat=yeu_cau_vat,
+                        ma_so_thue=mst,
+                        ten_cong_ty=ten_cong_ty,
+                        email_nhan_hd=email_nhan_hd
                     )
-                    ChiTietHoaDon.objects.create(hoa_don=hd, ten_mat_hang=f"Nhiên liệu {loai_nl}", so_luong=so_lit, don_gia=don_gia, thanh_tien=so_tien)
+                    
+                    # Tạo Chi tiết hóa đơn
+                    ChiTietHoaDon.objects.create(
+                        hoa_don=hd, 
+                        ten_mat_hang=f"Nhiên liệu {loai_nl}", 
+                        so_luong=so_lit, 
+                        don_gia=don_gia, 
+                        thanh_tien=so_tien
+                    )
+                    
                     messages.success(request, f"Thanh toán thành công: {so_lit:.2f} Lít {loai_nl}!")
+
+                    # ====================================================
+                    # 5. GỬI MAIL NẾU CÓ YÊU CẦU VAT VÀ CÓ NHẬP EMAIL
+                    # ====================================================
+                    if yeu_cau_vat and email_nhan_hd:
+                        try:
+                            tieu_de = f"Hóa đơn VAT điện tử - Cửa hàng GSMS - Mã {hd.ma_hd}"
+                            noi_dung = f"""
+Xin chào Công ty {ten_cong_ty} (MST: {mst}),
+
+Cảm ơn quý khách đã mua nhiên liệu tại hệ thống GSMS.
+Dưới đây là thông tin chi tiết hóa đơn điện tử của quý khách:
+
+- Mã Hóa Đơn: {hd.ma_hd}
+- Loại nhiên liệu: {bon.get_loai_nhien_lieu_display()}
+- Số lượng: {so_lit:.2f} Lít
+- Đơn giá: {don_gia:,.0f} VNĐ/Lít
+- Tổng tiền thanh toán: {so_tien:,.0f} VNĐ
+
+Trân trọng,
+Hệ thống Quản lý Trạm xăng GSMS.
+                            """
+                            send_mail(
+                                subject=tieu_de,
+                                message=noi_dung,
+                                from_email=settings.EMAIL_HOST_USER,
+                                recipient_list=[email_nhan_hd],
+                                fail_silently=False,
+                            )
+                        except Exception as mail_err:
+                            # In ra lỗi gửi mail để dev biết, nhưng không làm gián đoạn việc bán hàng
+                            print(f"Lỗi gửi mail cho hóa đơn {hd.ma_hd}: {str(mail_err)}")
+                    # ====================================================
+
                 else:
                     messages.error(request, "Bồn không đủ nhiên liệu để xuất!")
+                    
+        except BonChua.DoesNotExist:
+            messages.error(request, "Lỗi! Trạm của bạn chưa có bồn chứa loại nhiên liệu này.")
         except Exception as e:
+            # In ra lỗi cụ thể trong console để dễ debug hơn
+            print(f"Lỗi khi xử lý bán hàng: {str(e)}") 
             messages.error(request, "Có lỗi xảy ra, vui lòng thử lại!")
+            
     return redirect('pos_xang')
 
 @login_required
 def staff_chot_ca(request):
-    today = timezone.now().date()
-    ds_hoa_don = HoaDon.objects.filter(nhan_vien=request.user, thoi_gian__date=today)
-    tong_tien = ds_hoa_don.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0
-    tong_lit = ChiTietHoaDon.objects.filter(hoa_don__in=ds_hoa_don).aggregate(Sum('so_luong'))['so_luong__sum'] or 0
+    # 1. Tìm ca làm việc đang mở của nhân viên này
+    ca_hien_tai = CaLamViec.objects.filter(nhan_vien=request.user, trang_thai='dang_mo').first()
+
+    # Khởi tạo các biến đếm (mặc định = 0)
+    tong_tien = 0
+    tong_lit = 0
+    so_gd = 0
+
+    if ca_hien_tai:
+        # 2. TỐI ƯU QUERY: Lấy trực tiếp Hóa Đơn được đánh dấu thuộc về Ca này
+        # (Sử dụng related_name 'cac_hoa_don' từ ForeignKey sếp vừa thêm)
+        ds_hoa_don = ca_hien_tai.cac_hoa_don.all()
+        so_gd = ds_hoa_don.count()
+
+        if so_gd > 0:
+            tong_tien = ds_hoa_don.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0
+            tong_lit = ChiTietHoaDon.objects.filter(hoa_don__in=ds_hoa_don).aggregate(Sum('so_luong'))['so_luong__sum'] or 0
+
+        # 3. XỬ LÝ KHI BẤM NÚT "ĐỒNG Ý CHỐT CA" TỪ MODAL (POST)
+        if request.method == 'POST':
+            # [QUAN TRỌNG] Ghi nhận số liệu vào Database cho Trưởng trạm duyệt
+            ca_hien_tai.tong_tien_thu = tong_tien
+            ca_hien_tai.tong_so_lit_ban = tong_lit
+            
+            # Cập nhật thời gian và trạng thái
+            ca_hien_tai.thoi_gian_ket_thuc = timezone.now() # Đã mở comment dòng này
+            ca_hien_tai.trang_thai = 'cho_duyet'
+            ca_hien_tai.save()
+            
+            # Đăng xuất và đá về trang đăng nhập
+            logout(request)
+            messages.success(request, "Đã chốt ca thành công! Hãy nộp tiền mặt cho quản lý. Hệ thống tự động đăng xuất.")
+            return redirect('login')
+
+    # 4. NẾU LÀ GET REQUEST -> Hiển thị giao diện phiếu in chốt ca (Modal/Page)
+    context = {
+        'tong_tien': tong_tien, 
+        'so_gd': so_gd, 
+        'tong_lit': tong_lit, 
+        'ngay_chot': timezone.now(),
+        'ca': ca_hien_tai # Đẩy thêm object ca ra ngoài để lỡ HTML cần dùng ID ca
+    }
     
-    return render(request, 'staff/staff_chot_ca.html', {'tong_tien': tong_tien, 'so_gd': ds_hoa_don.count(), 'tong_lit': tong_lit, 'ngay_chot': timezone.now()})
+    return render(request, 'staff/staff_chot_ca.html', context)
 @login_required
 def tao_yeu_cau_nhap_hang(request):
     if request.method == 'POST':
-        if request.user.role != 'truong_tram': return redirect('pos_xang')
-        YeuCauNhapHang.objects.create(
-            tram=request.user.tram_xang,
-            loai_nhien_lieu=request.POST.get('loai_nhien_lieu'),
-            so_luong=float(request.POST.get('so_luong')),
-            ghi_chu=request.POST.get('ghi_chu', ''),
-            trang_thai='cho_duyet'
-        )
-        messages.success(request, "Đã gửi yêu cầu cấp hàng lên Tổng Công Ty!")
-    return redirect('pos_xang')
+        # 1. Chặn quyền: Nếu KHÔNG PHẢI Trưởng trạm mà mò vào đây thì đá ra POS (giữ nguyên)
+        if request.user.role != 'truong_tram': 
+            messages.error(request, "Lỗi! Chỉ Trưởng Trạm mới được phép xin cấp hàng.")
+            return redirect('pos_xang') 
+            
+        loai_nl = request.POST.get('loai_nhien_lieu')
+        so_luong_raw = request.POST.get('so_luong')
+        
+        # 2. Bắt lỗi để trống form
+        if not loai_nl or not so_luong_raw:
+            messages.error(request, "Vui lòng chọn loại nhiên liệu và nhập số lượng!")
+            return redirect('bao_cao_tram') # <-- ĐÃ SỬA: Đá về Báo cáo trạm
 
+        try:
+            # 3. Bắt lỗi nhập chữ thay vì số
+            so_luong_float = float(so_luong_raw)
+            
+            # 4. Bắt lỗi xin ít quá không bõ tiền xe
+            if so_luong_float < 500:
+                messages.warning(request, "Số lượng xin cấp tối thiểu phải từ 500 lít trở lên để điều xe bồn!")
+                return redirect('bao_cao_tram') # <-- ĐÃ SỬA: Đá về Báo cáo trạm
+
+            # 5. Lưu Database an toàn
+            YeuCauNhapHang.objects.create(
+                tram=request.user.tram_xang,
+                nguoi_yeu_cau=request.user, 
+                loai_nhien_lieu=loai_nl,
+                so_luong=so_luong_float,
+                ghi_chu=request.POST.get('ghi_chu', ''),
+                trang_thai='cho_duyet'
+            )
+            messages.success(request, f"Đã gửi yêu cầu cấp {so_luong_float:,.0f} Lít {loai_nl} lên Tổng Công Ty!")
+            
+        except ValueError:
+            # Bắt lỗi khi dữ liệu nhập vào không thể chuyển thành số
+            messages.error(request, "Số lượng nhập vào không hợp lệ!")
+
+    # <-- ĐÃ SỬA: Điều hướng mặc định sau khi xong việc cũng về Báo cáo trạm
+    return redirect('bao_cao_tram')
 @login_required
 def bao_cao_tram(request):
-    if request.user.role != 'truong_tram': return redirect('pos_xang')
+    # 1. Kiểm tra quyền
+    if request.user.role != 'truong_tram': 
+        messages.error(request, "Bạn không có quyền xem báo cáo trạm!")
+        return redirect('pos_xang')
+        
     tram = request.user.tram_xang
-    today = timezone.now().date()
-    hds_hom_nay = HoaDon.objects.filter(nhan_vien__tram_xang=tram, thoi_gian__date=today)
-    doanh_thu_nhan_vien = HoaDon.objects.filter(nhan_vien__tram_xang=tram, thoi_gian__date=today).values('nhan_vien__username', 'nhan_vien__full_name').annotate(tong_ban=Sum('tong_tien'), so_don=Count('id')).order_by('-tong_ban')
     
-    return render(request, 'staff/bao_cao_tram.html', {
-        'tram': tram, 'ngay_bao_cao': timezone.now(),
+    # 2. Chốt chặn bảo mật lỡ Trưởng trạm chưa có Trạm
+    if not tram:
+        messages.warning(request, "Tài khoản của bạn chưa được phân bổ vào Trạm nào!")
+        return redirect('trang_chu')
+
+    today = timezone.now().date()
+    
+    # 3. Lấy QuerySet gốc 1 lần duy nhất để tối ưu hiệu năng Database
+    hds_hom_nay = HoaDon.objects.filter(nhan_vien__tram_xang=tram, thoi_gian__date=today)
+    
+    # 4. Tái sử dụng hds_hom_nay để tính KPI nhân viên thay vì query lại từ đầu
+    doanh_thu_nhan_vien = hds_hom_nay.values(
+        'nhan_vien__username', 
+        'nhan_vien__full_name'
+    ).annotate(
+        tong_ban=Sum('tong_tien'), 
+        so_don=Count('id')
+    ).order_by('-tong_ban')
+    
+    context = {
+        'tram': tram, 
+        'ngay_bao_cao': timezone.now(),
         'doanh_thu_hom_nay': hds_hom_nay.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0,
         'so_gd_hom_nay': hds_hom_nay.count(),
         'san_luong_hom_nay': ChiTietHoaDon.objects.filter(hoa_don__in=hds_hom_nay).aggregate(Sum('so_luong'))['so_luong__sum'] or 0,
         'ds_bon': BonChua.objects.filter(tram=tram),
         'doanh_thu_nhan_vien': doanh_thu_nhan_vien,
-    })
+    }
+    
+    # Sếp lưu template trong thư mục staff/ nên tui giữ nguyên đường dẫn này
+    return render(request, 'staff/bao_cao_tram.html', context)
 
 # ==========================================
 # 4. QUẢN TRỊ TỔNG QUAN (ADMIN & KẾ TOÁN)
@@ -1294,6 +1481,95 @@ def gui_danh_gia_tram(request):
             messages.error(request, f"Lỗi gửi đánh giá: {e}")
             
     return redirect('trang_chu')
+<<<<<<< HEAD
+@login_required
+def mo_ca(request):
+    if request.method == 'POST':
+        user_hien_tai = request.user
+        
+        # 1. CHỐT CHẶN BẢO MẬT: Chống mở 2 ca cùng lúc
+        ca_dang_mo = CaLamViec.objects.filter(nhan_vien=user_hien_tai, trang_thai='dang_mo').exists()
+        if ca_dang_mo:
+            messages.error(request, "Lỗi! Bạn đang có một ca làm việc chưa chốt. Vui lòng chốt ca cũ trước khi mở ca mới!")
+            return redirect('pos_xang')
+
+        # 2. KIỂM TRA TRẠM: Lỡ nhân viên mới chưa được Admin phân trạm
+        if not user_hien_tai.tram_xang:
+            messages.error(request, "Tài khoản của bạn chưa được phân công vào Trạm nào. Vui lòng báo Admin!")
+            return redirect('pos_xang')
+
+        # 3. LỌC DỮ LIỆU ĐẦU VÀO: Chống lỗi văng web khi bỏ trống ô nhập
+        raw_tien = request.POST.get('tien_dau_ca', '0')
+        raw_loc = request.POST.get('so_loc_dau_ca', '0')
+        
+        try:
+            # Ép kiểu an toàn, lỡ nhập rỗng hoặc ký tự lạ thì gán bằng 0
+            tien_dau_ca_val = float(raw_tien) if raw_tien.strip() else 0
+            so_loc_dau_ca_val = float(raw_loc) if raw_loc.strip() else 0
+        except ValueError:
+            tien_dau_ca_val = 0
+            so_loc_dau_ca_val = 0
+
+        # 4. TẠO CA MỚI AN TOÀN
+        CaLamViec.objects.create(
+            nhan_vien=user_hien_tai,
+            tram=user_hien_tai.tram_xang,
+            tien_dau_ca=tien_dau_ca_val,
+            so_loc_dau_ca=so_loc_dau_ca_val,
+            trang_thai='dang_mo'
+        )
+        
+        messages.success(request, "Đã mở ca thành công! Bắt đầu bán hàng thôi.")
+        
+    return redirect('pos_xang')
+
+@login_required
+def nop_tien_giua_ca(request):
+    if request.method == 'POST':
+        ca_hien_tai = CaLamViec.objects.filter(nhan_vien=request.user, trang_thai='dang_mo').last()
+        if ca_hien_tai:
+            NopTienGiuaCa.objects.create(
+                ca_lam_viec=ca_hien_tai,
+                so_tien=request.POST.get('so_tien_nop', 0),
+                nguoi_nhan=request.POST.get('nguoi_nhan', '')
+            )
+            messages.success(request, "Đã nộp tiền an toàn vào két sắt!")
+        else:
+            messages.error(request, "Lỗi: Không tìm thấy ca làm việc đang mở!")
+    return redirect('pos_xang')
+@login_required
+def xuat_excel_tram(request):
+    # Chặn quyền
+    if request.user.role != 'truong_tram': return redirect('pos_xang')
+    
+    tram = request.user.tram_xang
+    today = timezone.now().date()
+    
+    # Lấy dữ liệu gom nhóm
+    doanh_thu_nhan_vien = HoaDon.objects.filter(
+        nhan_vien__tram_xang=tram, thoi_gian__date=today
+    ).values('nhan_vien__full_name', 'nhan_vien__username').annotate(
+        tong_ban=Sum('tong_tien'), so_don=Count('id')
+    )
+
+    # Cấu hình file trả về là CSV (Excel đọc ngon lành)
+    response = HttpResponse(content_type='text/csv; charset=utf-8-sig') # utf-8-sig để Excel không lỗi font tiếng Việt
+    response['Content-Disposition'] = f'attachment; filename="DoanhThu_{tram.ten_tram}_{today}.csv"'
+
+    writer = csv.writer(response)
+    # Viết tiêu đề cột
+    writer.writerow(['Tên Nhân Viên', 'Mã Đăng Nhập', 'Số Đơn Bán', 'Tổng Doanh Thu (VNĐ)'])
+
+    # Viết dữ liệu
+    for nv in doanh_thu_nhan_vien:
+        ten = nv['nhan_vien__full_name'] or 'Chưa cập nhật'
+        username = nv['nhan_vien__username']
+        so_don = nv['so_don']
+        tong_ban = nv['tong_ban'] or 0
+        writer.writerow([ten, username, so_don, tong_ban])
+
+    return response
+=======
 
 
 @login_required
@@ -1369,3 +1645,4 @@ def nhap_excel(request):
             messages.error(request, f'Lỗi hệ thống khi đọc file Excel: {str(e)}')
 
     return redirect('admin_dashboard')
+>>>>>>> 459ef4b08061a54296e17a23e42c0a97f7ca9639
