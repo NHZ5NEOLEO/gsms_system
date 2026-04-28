@@ -236,13 +236,17 @@ def pos_xang(request):
         if b.suc_chua_toi_da > 0 and (b.muc_hien_tai / b.suc_chua_toi_da) * 100 < 20:
             bon_can_canh_bao.append(b)
             
-        # Đã xóa dòng gán b.gia_ban_hien_tai ở đây để tránh lỗi AttributeError
         ds_bon.append(b)
 
+    # ĐIỂM THAY ĐỔI: Dùng annotate để tính tổng số lít từ ChiTietHoaDon
     if user.role == 'truong_tram':
-        lich_su = HoaDon.objects.filter(nhan_vien__tram_xang=tram_cua_toi).order_by('-thoi_gian')[:20]
+        lich_su = HoaDon.objects.filter(nhan_vien__tram_xang=tram_cua_toi) \
+            .annotate(tong_lit=Sum('chitiethoadon__so_luong')) \
+            .order_by('-thoi_gian')[:20]
     else:
-        lich_su = HoaDon.objects.filter(nhan_vien=user).order_by('-thoi_gian')[:10]
+        lich_su = HoaDon.objects.filter(nhan_vien=user) \
+            .annotate(tong_lit=Sum('chitiethoadon__so_luong')) \
+            .order_by('-thoi_gian')[:10]
 
     return render(request, 'staff/pos_xang.html', {
         'tram': tram_cua_toi, 

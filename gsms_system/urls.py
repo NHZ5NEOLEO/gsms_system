@@ -11,6 +11,11 @@ urlpatterns = [
     
     # App core của bạn vẫn giữ nguyên, nhận mọi request còn lại
     path('', include('core.urls')), 
+
+    # ==========================================
+    # THÊM ĐÚNG 1 DÒNG NÀY VÀO ĐÂY ĐỂ XỬ LÝ GOOGLE LOGIN:
+    # ==========================================
+    path('accounts/', include('allauth.urls')),
 ]
 
 # 2. THÊM ĐOẠN NÀY VÀO CUỐI CÙNG ĐỂ HIỂN THỊ ẢNH

@@ -222,6 +222,7 @@ def trang_tuyen_dung(request): return render(request, 'pages/tuyen_dung.html')
 # 3. NHÂN VIÊN & TRƯỞNG TRẠM
 # ==========================================
 @login_required
+@login_required
 def pos_xang(request):
     user = request.user
     if user.role in ['admin', 'ke_toan'] or user.is_superuser: 
@@ -232,7 +233,19 @@ def pos_xang(request):
         return redirect('login')
 
     tram_cua_toi = user.tram_xang
-    ds_bon = BonChua.objects.filter(tram=tram_cua_toi)
+    
+    # --- Logic xử lý bồn chứa và tính phần trăm thanh màu ---
+    ds_bon_raw = BonChua.objects.filter(tram=tram_cua_toi)
+    ds_bon = []
+    bon_can_canh_bao = []
+    
+    for b in ds_bon_raw:
+        # Bỏ dòng gán b.phan_tram đi vì model đã tự tính bằng @property
+        # Chỉ cần gọi b.phan_tram ra để kiểm tra cảnh báo sắp hết xăng
+        if b.suc_chua_toi_da > 0 and b.phan_tram < 20:
+            bon_can_canh_bao.append(b)
+            
+        ds_bon.append(b)
 
     # ==========================================
     # BƯỚC 1: TÌM HOẶC TẠO CA MỚI TRƯỚC
@@ -249,27 +262,29 @@ def pos_xang(request):
         )
 
     # ==========================================
-    # BƯỚC 2: CHỈ LẤY LỊCH SỬ CỦA ĐÚNG CA NÀY
+    # BƯỚC 2: CHỈ LẤY LỊCH SỬ CỦA ĐÚNG CA NÀY VÀ TÍNH TỔNG LÍT
     # ==========================================
-    # Sếp lưu ý: Thay 'thoi_gian_bat_dau' bằng đúng tên cột thời gian tạo trong model CaLamViec nhé 
-    # (Có thể là thoi_gian_tao, created_at, v.v...)
     thoi_gian_ca_mo = ca_hien_tai.thoi_gian_bat_dau 
 
     if user.role == 'truong_tram':
-        # Lọc Hóa đơn có thời gian >= thời gian mở ca
         lich_su = HoaDon.objects.filter(
             nhan_vien__tram_xang=tram_cua_toi,
             thoi_gian__gte=thoi_gian_ca_mo  
+        ).annotate(
+            tong_lit=Sum('chitiethoadon__so_luong') # <-- CHÍNH LÀ DÒNG NÀY ĐỂ HIỆN LÍT
         ).order_by('-thoi_gian')[:20]
     else:
         lich_su = HoaDon.objects.filter(
             nhan_vien=user,
             thoi_gian__gte=thoi_gian_ca_mo  
+        ).annotate(
+            tong_lit=Sum('chitiethoadon__so_luong') # <-- CHÍNH LÀ DÒNG NÀY ĐỂ HIỆN LÍT
         ).order_by('-thoi_gian')[:10]
 
     return render(request, 'staff/pos_xang.html', {
         'tram': tram_cua_toi, 
         'ds_bon': ds_bon, 
+        'bon_can_canh_bao': bon_can_canh_bao, # Trả về biến cảnh báo
         'lich_su_ban': lich_su
     })
 @login_required
@@ -1462,23 +1477,39 @@ def gui_danh_gia(request, sp_id):
             messages.error(request, f"Lỗi gửi đánh giá: {e}")
             
     return redirect(request.META.get('HTTP_REFERER', 'san_pham'))
+@login_required # Bắt buộc phải đăng nhập mới được chạy hàm này
 def gui_danh_gia_tram(request):
     if request.method == 'POST':
         tram_id = request.POST.get('tram_id')
-        ten_khach_hang = request.POST.get('ten_khach_hang')
+        
+        # 1. TÌM TRẠM
+        tram = get_object_or_404(TramXang, id=tram_id)
+
+        # ====================================================
+        # 2. CHỐT CHẶN: KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA?
+        # ====================================================
+        # (Lưu ý: Bạn sẽ cần thêm cột user_id vào bảng DanhGiaTram trong models.py)
+        da_danh_gia = DanhGiaTram.objects.filter(tram=tram, user=request.user).exists()
+        
+        if da_danh_gia:
+            messages.error(request, "Bạn đã đánh giá trạm này rồi! Mỗi người chỉ được đánh giá 1 lần.")
+            return redirect('trang_chu') # Đá văng ra ngoài, không cho chạy tiếp
+
+        # ====================================================
+        # 3. NẾU CHƯA ĐÁNH GIÁ THÌ MỚI CHO LƯU
+        # ====================================================
         so_sao = request.POST.get('so_sao')
         noi_dung = request.POST.get('noi_dung')
 
         try:
-            tram = TramXang.objects.get(id=tram_id)
             DanhGiaTram.objects.create(
                 tram=tram,
-                ten_khach_hang=ten_khach_hang,
+                user=request.user, # Gắn chặt bài đánh giá này với tài khoản vừa đăng nhập
+                ten_khach_hang=request.user.full_name, 
                 so_sao=so_sao,
                 noi_dung=noi_dung
-                # da_duyet mặc định là False, Admin sẽ duyệt trong hộp thư
             )
-            messages.success(request, "Cảm ơn bạn đã đánh giá! Hệ thống đã ghi nhận.")
+            messages.success(request, "Hệ thống đã ghi nhận! Đang chờ Ban quản trị duyệt.")
         except Exception as e:
             messages.error(request, f"Lỗi gửi đánh giá: {e}")
             

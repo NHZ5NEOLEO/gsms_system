@@ -31,6 +31,13 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django.contrib.humanize',
     'core', # App của bạn
+    # --- THÊM DÒNG NÀY VÀO ---
+    'django.contrib.sites',
+    # --- THÊM CÁC APP CỦA ALLAUTH (CHO GOOGLE LOGIN) ---
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
 ]
 
 MIDDLEWARE = [
@@ -41,6 +48,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # --- THÊM MIDDLEWARE NÀY CỦA ALLAUTH ---
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'gsms_system.urls'
@@ -158,15 +167,34 @@ STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, 'static'),
 ]
-INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    
-    'django.contrib.humanize',
-    # App của bạn phải được đăng ký ở đây
-    'core', 
+# ==========================================
+# CẤU HÌNH ĐĂNG NHẬP BẰNG GOOGLE (ALLAUTH)
+# ==========================================
+AUTHENTICATION_BACKENDS = [
+    # Đăng nhập bằng username/password bình thường của hệ thống
+    'django.contrib.auth.backends.ModelBackend',
+    # Xác thực qua Google của allauth
+    'allauth.account.auth_backends.AuthenticationBackend',
 ]
+
+# ID của trang web (Bắt buộc phải có đối với allauth)
+SITE_ID = 1 
+
+# --- Tối ưu hóa trải nghiệm (UX) cho khách hàng ---
+ACCOUNT_EMAIL_VERIFICATION = 'none' # Khách không cần check mail để xác thực rườm rà
+ACCOUNT_LOGIN_METHODS = {'username', 'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'username*', 'password1*', 'password2*']
+SOCIALACCOUNT_LOGIN_ON_GET = True # Bấm nút Google là tự động đăng nhập luôn, không bắt xác nhận lần 2
+
+# --- Cấu hình riêng cho nhà cung cấp Google ---
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': [
+            'profile',
+            'email',
+        ],
+        'AUTH_PARAMS': {
+            'access_type': 'online',
+        }
+    }
+}
