@@ -219,7 +219,7 @@
                 
                 <div class="d-flex align-items-center ms-auto">
                     {% if user.is_authenticated %}
-                    <span class="text-white-50 me-3 d-none d-lg-block border-end pe-3">Hi, <strong class="text-white">{{ user.username }}</strong></span>
+                    <span class="text-white-50 me-3 d-none d-lg-block border-end pe-3">Hi, <strong class="text-white">{{ user.full_name|default:user.username }}</strong></span>
     
                     {% if user.role == 'admin' or user.is_superuser or user.role == 'ke_toan' %}
                         <a href="{% url 'admin_dashboard' %}" class="btn btn-warning btn-sm fw-bold me-2 rounded-pill px-3 shadow-sm">
@@ -229,7 +229,7 @@
                         <a href="{% url 'bao_cao_tram' %}" class="btn btn-info btn-sm text-dark fw-bold me-2 rounded-pill px-3 shadow-sm">
                             <i class="fas fa-chart-line me-1"></i> Phòng Điều Hành
                         </a>
-                    {% else %}
+                    {% elif user.role == 'nv_ban_xang' %}
                         <a href="{% url 'pos_xang' %}" class="btn btn-success btn-sm fw-bold me-2 rounded-pill px-3 shadow-sm">
                             <i class="fas fa-gas-pump me-1"></i> Bơm Xăng
                         </a>

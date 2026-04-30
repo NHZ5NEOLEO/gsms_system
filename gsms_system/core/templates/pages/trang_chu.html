@@ -1,7 +1,8 @@
+{% tui_la_loi_co_y_ne_cho_sap_web_luon %}
 {% extends 'base.html' %}
 {% load humanize %}
-
-{% block content %}
+{% load socialaccount %} {% block content %}
+<h1 style="color: red; padding-top: 100px;">NẾU THẤY DÒNG CHỮ NÀY LÀ ĐÚNG FILE!!!</h1>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
 
@@ -172,7 +173,8 @@
 </section>
 
 <div class="modal fade" id="modalDanhGiaTram" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> 
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
             <div class="modal-header bg-warning text-dark border-0 py-3">
                 <h5 class="modal-title fw-bold"><i class="fas fa-gas-pump me-2"></i> Trạm: <span id="modal_ten_tram">Tên Trạm</span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -182,34 +184,58 @@
                 <div class="row g-0">
                     <div class="col-md-6 bg-light p-4 review-scroll" style="max-height: 480px; overflow-y: auto; border-right: 1px solid #dee2e6;">
                         <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Cộng đồng đánh giá</h6>
-                        <div id="danh_sach_binh_luan">
-                            </div>
+                        <div id="danh_sach_binh_luan"></div>
                     </div>
                     
                     <div class="col-md-6 p-4 bg-white d-flex flex-column">
-                        <form method="POST" action="{% url 'gui_danh_gia_tram' %}" class="w-100 flex-grow-1 d-flex flex-column">
-                            {% csrf_token %}
-                            <input type="hidden" name="tram_id" id="modal_tram_id">
-                            
-                            <h6 class="fw-bold text-primary text-center mb-3">Trải nghiệm của bạn thế nào?</h6>
-                            
-                            <div class="rating-stars mb-4">
-                                <input type="radio" id="star5" name="so_sao" value="5" checked /><label for="star5" title="Tuyệt vời"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star4" name="so_sao" value="4" /><label for="star4" title="Tốt"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star3" name="so_sao" value="3" /><label for="star3" title="Bình thường"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star2" name="so_sao" value="2" /><label for="star2" title="Tệ"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star1" name="so_sao" value="1" /><label for="star1" title="Rất tệ"><i class="fas fa-star"></i></label>
-                            </div>
+                        
+                        {% if user.is_authenticated %}
+                            <form method="POST" action="{% url 'gui_danh_gia_tram' %}" class="w-100 flex-grow-1 d-flex flex-column">
+                                {% csrf_token %}
+                                <input type="hidden" name="tram_id" id="modal_tram_id">
+                                
+                                <h6 class="fw-bold text-primary text-center mb-3">Trải nghiệm của bạn thế nào?</h6>
+                                
+                                <div class="rating-stars mb-4">
+                                    <input type="radio" id="star5" name="so_sao" value="5" checked /><label for="star5" title="Tuyệt vời"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star4" name="so_sao" value="4" /><label for="star4" title="Tốt"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star3" name="so_sao" value="3" /><label for="star3" title="Bình thường"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star2" name="so_sao" value="2" /><label for="star2" title="Tệ"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star1" name="so_sao" value="1" /><label for="star1" title="Rất tệ"><i class="fas fa-star"></i></label>
+                                </div>
 
-                            <div class="mb-3">
-                                <input type="text" name="ten_khach_hang" class="form-control mb-3 bg-light border-0 shadow-sm px-3 py-2" placeholder="Nhập tên của bạn..." required>
-                                <textarea name="noi_dung" class="form-control bg-light border-0 shadow-sm px-3 py-2" rows="5" placeholder="Chia sẻ cảm nhận của bạn (thái độ nhân viên, chất lượng bơm xăng...)" required></textarea>
+                                <div class="mb-3 text-center border-bottom pb-2">
+                                    <span class="small text-muted">Đánh giá với tư cách:</span><br>
+                                    <strong class="text-dark"><i class="fab fa-google text-danger me-1"></i> {{ user.full_name|default:user.username }}</strong>
+                                </div>
+
+                                <div class="mb-3">
+                                    <textarea name="noi_dung" class="form-control bg-light border-0 shadow-sm px-3 py-2" rows="5" placeholder="Chia sẻ cảm nhận của bạn (thái độ nhân viên, chất lượng bơm xăng...)" required></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-warning text-dark fw-bold w-100 shadow-sm rounded-pill py-2 mt-auto">
+                                    <i class="fas fa-paper-plane me-1"></i> GỬI ĐÁNH GIÁ
+                                </button>
+                            </form>
+
+                        {% else %}
+                            <div class="w-100 flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="mb-4">
+                                    <i class="fas fa-lock fa-4x text-muted opacity-25 mb-3"></i>
+                                    <h5 class="fw-bold text-dark">Bạn cần đăng nhập</h5>
+                                    <p class="text-muted small px-3">Vui lòng đăng nhập bằng tài khoản Google để có thể viết đánh giá cho trạm xăng này nhé!</p>
+                                </div>
+                                
+                                <form action="{% provider_login_url 'google' process='login' %}" method="POST" class="w-100 mt-auto">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{% url 'trang_chu' %}">
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 py-2 shadow fw-bold w-100" style="transition: 0.3s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+                                        <i class="fab fa-google me-2"></i> Đăng nhập bằng Google
+                                    </button>
+                                </form>
                             </div>
-                            
-                            <button type="submit" class="btn btn-warning text-dark fw-bold w-100 shadow-sm rounded-pill py-2 mt-auto">
-                                <i class="fas fa-paper-plane me-1"></i> GỬI ĐÁNH GIÁ
-                            </button>
-                        </form>
+                        {% endif %}
+                        
                     </div>
                 </div>
             </div>
@@ -277,6 +303,7 @@
         </div>
     </div>
 </section>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
@@ -321,17 +348,14 @@
         return R * c;
     }
 
-    // HÀM MỞ MODAL VÀ ĐỔ DỮ LIỆU ĐÁNH GIÁ (JS)
+    // HÀM MỞ MODAL VÀ ĐỔ DỮ LIỆU ĐÁNH GIÁ
     function moModalDanhGia(id) {
-        // Lấy dữ liệu trạm từ danh sách đã nạp
         var st = allStations.find(x => String(x.id) === String(id));
         if(!st) return;
 
-        // Cập nhật thẻ ẩn và tiêu đề Modal
         document.getElementById('modal_tram_id').value = st.id;
         document.getElementById('modal_ten_tram').innerText = st.ten;
         
-        // Vẽ danh sách đánh giá bên cột trái
         var container = document.getElementById('danh_sach_binh_luan');
         if (st.danh_gia_chi_tiet && st.danh_gia_chi_tiet.length > 0) {
             var html = '';
@@ -365,7 +389,6 @@
             `;
         }
 
-        // Bật popup
         var myModal = new bootstrap.Modal(document.getElementById('modalDanhGiaTram'));
         myModal.show();
     }
@@ -400,7 +423,6 @@
                 var ecoBadge = isEcoStation ? `<div class="badge bg-info text-dark w-100 mb-2 shadow-sm"><i class="fas fa-leaf"></i> TRẠM XĂNG SINH THÁI</div>` : '';
                 var titleColor = isEcoStation ? 'text-eco' : 'text-primary';
 
-                // Lấy thông tin điểm đánh giá truyền vào Marker
                 var diemSao = st.diem_danh_gia ? parseFloat(st.diem_danh_gia).toFixed(1) : "5.0";
                 var luotDanhGia = st.luot_danh_gia ? st.luot_danh_gia : 0;
                 var ratingHtml = `

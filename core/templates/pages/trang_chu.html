@@ -1,9 +1,13 @@
 {% extends 'base.html' %}
+{% load static %}
 {% load humanize %}
+{% load socialaccount %} 
 
 {% block content %}
+<!-- CÚP TÍCH HỢP CSS BẢN ĐỒ VÀ SWIPER -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
 
 <style>
     /* CSS BẢN ĐỒ */
@@ -40,7 +44,7 @@
     }
     .price-value { color: #ffc107; font-size: 1.1rem; }
 
-    /* CSS: Tin Tức Trang Chủ */
+    /* CSS: Tin Tức Trang Chủ (Cắt ngắn chữ) */
     .home-news-card {
         border-radius: 16px;
         transition: all 0.3s ease;
@@ -56,6 +60,24 @@
     .home-news-card:hover .home-news-img {
         transform: scale(1.05);
     }
+    .text-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    /* CSS: Swiper Nút bấm */
+    .swiper-button-next, .swiper-button-prev {
+        color: #0d6efd !important;
+        background: rgba(255, 255, 255, 0.9);
+        width: 45px; height: 45px; border-radius: 50%;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    .swiper-button-next::after, .swiper-button-prev::after {
+        font-size: 20px !important; font-weight: bold;
+    }
 
     /* CSS Cho Modal Đánh Giá */
     .rating-stars { display: flex; flex-direction: row-reverse; justify-content: center; }
@@ -63,20 +85,36 @@
     .rating-stars label { font-size: 2rem; color: #ddd; cursor: pointer; transition: 0.2s; padding: 0 5px; }
     .rating-stars input:checked ~ label, .rating-stars label:hover, .rating-stars label:hover ~ label { color: #ffc107; }
     
-    /* Làm đẹp thanh cuộn cho cột đánh giá */
     .review-scroll::-webkit-scrollbar { width: 6px; }
     .review-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
     .review-scroll::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 10px; }
     .review-scroll::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
 </style>
 
-{% load static %} 
+<!-- ========================================== -->
+<!-- KHU VỰC 1: BANNER SLIDER NẰM LÀM NỀN -->
+<!-- ========================================== -->
 <div class="container-fluid p-0 mb-4 position-relative overflow-hidden shadow" style="height: 520px; border-radius: 0 0 20px 20px;">
     
-    <img src="{% static 'images/banners/banner_chinh.jpg' %}" class="w-100 h-100 position-absolute top-0 start-0" style="object-fit: cover; z-index: 1;" alt="GSMS Banner">
+    <!-- Lắp Bootstrap Carousel (Slider) làm Background -->
+    <div id="bgBannerSlider" class="carousel slide carousel-fade position-absolute top-0 start-0 w-100 h-100" data-bs-ride="carousel" data-bs-interval="4000" style="z-index: 1;">
+        <div class="carousel-inner h-100">
+            <div class="carousel-item active h-100">
+                <img src="{% static 'images/banners/banner_chinh.jpg' %}" class="d-block w-100 h-100" style="object-fit: cover;" alt="Banner 1">
+            </div>
+            <div class="carousel-item h-100">
+                <img src="https://images.unsplash.com/photo-1620601550974-9d58ba3bc909?q=80&w=2000&auto=format&fit=crop" class="d-block w-100 h-100" style="object-fit: cover;" alt="Banner 2">
+            </div>
+            <div class="carousel-item h-100">
+                <img src="https://images.unsplash.com/photo-1555626906-fcf10d6851b4?q=80&w=2000&auto=format&fit=crop" class="d-block w-100 h-100" style="object-fit: cover;" alt="Banner 3">
+            </div>
+        </div>
+    </div>
     
-    <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(135deg, rgba(15, 76, 129, 0.85) 0%, rgba(0, 0, 0, 0.3) 100%); z-index: 2;"></div>
+    <!-- Lớp màng đen phủ lên để làm nổi chữ -->
+    <div class="position-absolute top-0 start-0 w-100 h-100" style="background: linear-gradient(135deg, rgba(15, 76, 129, 0.85) 0%, rgba(0, 0, 0, 0.4) 100%); z-index: 2;"></div>
     
+    <!-- Khối chữ và Nút bấm nằm chìm ở giữa, nổi lên trên Slider -->
     <div class="container h-100 position-relative z-3 d-flex align-items-center justify-content-center text-center">
         <div class="text-white">
             <span class="badge bg-warning text-dark px-4 py-2 rounded-pill mb-3 fw-bold shadow-sm" style="letter-spacing: 2px;">GSMS GROUP</span>
@@ -102,7 +140,12 @@
                            onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" style="transition: all 0.3s ease;">
                             <i class="fas fa-shield-alt me-2"></i> VÀO TRANG QUẢN TRỊ
                         </a>
-                    {% else %}
+                    {% elif user.role == 'truong_tram' %}
+                        <a href="{% url 'bao_cao_tram' %}" class="btn btn-info btn-lg rounded-pill shadow-lg px-4 py-3 fw-bold text-dark border-2 border-white"
+                           onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" style="transition: all 0.3s ease;">
+                            <i class="fas fa-chart-line me-2"></i> PHÒNG ĐIỀU HÀNH
+                        </a>
+                    {% elif user.role == 'nv_ban_xang' %}
                         <a href="{% url 'pos_xang' %}" class="btn btn-success btn-lg rounded-pill shadow-lg px-4 py-3 fw-bold text-white border-2 border-white"
                            onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" style="transition: all 0.3s ease;">
                             <i class="fas fa-gas-pump me-2"></i> VÀO MÁY POS
@@ -110,8 +153,8 @@
                     {% endif %}
                 {% else %}
                     <a href="{% url 'login' %}" class="btn btn-outline-light btn-lg rounded-pill shadow-lg px-4 py-3 fw-bold border-2"
-                       onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" style="transition: all 0.3s ease;">
-                        <i class="fas fa-sign-in-alt me-2"></i> ĐĂNG NHẬP HỆ THỐNG
+                        onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" style="transition: all 0.3s ease;">
+                        <i class="fas fa-sign-in-alt me-2"></i> ĐĂNG NHẬP NỘI BỘ
                     </a>
                 {% endif %}
             </div>
@@ -146,7 +189,7 @@
                 <div class="mb-3 position-relative">
                     <label class="form-label fw-bold"><i class="fas fa-search-location text-danger"></i> Tìm khu vực của bạn:</label>
                     <input type="text" class="form-control border-primary shadow-sm" 
-                           placeholder="Nhập tên Phường, Quận... hoặc click map" 
+                           placeholder="Nhập tên Trạm, Đường, Quận..." 
                            id="locationInput" 
                            oninput="tuDongTimKiem()" autocomplete="off">
                     
@@ -193,52 +236,9 @@
     </div>
 </section>
 
-<div class="modal fade" id="modalDanhGiaTram" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg"> <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
-            <div class="modal-header bg-warning text-dark border-0 py-3">
-                <h5 class="modal-title fw-bold"><i class="fas fa-gas-pump me-2"></i> Trạm: <span id="modal_ten_tram">Tên Trạm</span></h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            
-            <div class="modal-body p-0">
-                <div class="row g-0">
-                    <div class="col-md-6 bg-light p-4 review-scroll" style="max-height: 480px; overflow-y: auto; border-right: 1px solid #dee2e6;">
-                        <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Cộng đồng đánh giá</h6>
-                        <div id="danh_sach_binh_luan">
-                            </div>
-                    </div>
-                    
-                    <div class="col-md-6 p-4 bg-white d-flex flex-column">
-                        <form method="POST" action="{% url 'gui_danh_gia_tram' %}" class="w-100 flex-grow-1 d-flex flex-column">
-                            {% csrf_token %}
-                            <input type="hidden" name="tram_id" id="modal_tram_id">
-                            
-                            <h6 class="fw-bold text-primary text-center mb-3">Trải nghiệm của bạn thế nào?</h6>
-                            
-                            <div class="rating-stars mb-4">
-                                <input type="radio" id="star5" name="so_sao" value="5" checked /><label for="star5" title="Tuyệt vời"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star4" name="so_sao" value="4" /><label for="star4" title="Tốt"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star3" name="so_sao" value="3" /><label for="star3" title="Bình thường"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star2" name="so_sao" value="2" /><label for="star2" title="Tệ"><i class="fas fa-star"></i></label>
-                                <input type="radio" id="star1" name="so_sao" value="1" /><label for="star1" title="Rất tệ"><i class="fas fa-star"></i></label>
-                            </div>
-
-                            <div class="mb-3">
-                                <input type="text" name="ten_khach_hang" class="form-control mb-3 bg-light border-0 shadow-sm px-3 py-2" placeholder="Nhập tên của bạn..." required>
-                                <textarea name="noi_dung" class="form-control bg-light border-0 shadow-sm px-3 py-2" rows="5" placeholder="Chia sẻ cảm nhận của bạn (thái độ nhân viên, chất lượng bơm xăng...)" required></textarea>
-                            </div>
-                            
-                            <button type="submit" class="btn btn-warning text-dark fw-bold w-100 shadow-sm rounded-pill py-2 mt-auto">
-                                <i class="fas fa-paper-plane me-1"></i> GỬI ĐÁNH GIÁ
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
+<!-- ========================================== -->
+<!-- KHU VỰC 2: SWIPER TIN TỨC -->
+<!-- ========================================== -->
 <section id="tin-tuc" class="bg-light py-5">
     <div class="container">
         <div class="d-flex justify-content-between align-items-end mb-4 border-bottom pb-3">
@@ -251,64 +251,177 @@
             </a>
         </div>
 
-        <div class="row g-4">
-            {% for tin in tin_moi_nhat %}
-            <div class="col-md-4">
-                <div class="card home-news-card h-100 bg-white shadow-sm overflow-hidden">
-                    <div class="position-relative overflow-hidden">
-                        <a href="{% url 'chi_tiet_tin_tuc' tin.id %}">
-                            {% if tin.anh_bia %}
-                                <img src="{{ tin.anh_bia.url }}" class="w-100 home-news-img" style="height: 220px; object-fit: cover;" alt="{{ tin.tieu_de }}">
-                            {% else %}
-                                <img src="https://via.placeholder.com/400x220/e9ecef/6c757d?text=GSMS+News" class="w-100 home-news-img" style="height: 220px; object-fit: cover;">
-                            {% endif %}
-                        </a>
-                        
-                        <div class="position-absolute shadow-sm" style="top: 15px; right: 15px; background: rgba(255,255,255,0.95); padding: 8px 12px; border-radius: 12px; text-align: center; backdrop-filter: blur(4px);">
-                            <span class="d-block fw-bold" style="font-size: 1.3rem; color: #0f4c81; line-height: 1;">{{ tin.ngay_dang|date:"d" }}</span>
-                            <span class="d-block fw-bold" style="font-size: 0.7rem; color: #198754;">TH{{ tin.ngay_dang|date:"m" }}</span>
+        <!-- Cài đặt khung Swiper -->
+        <div class="swiper newsSwiper pb-5">
+            <div class="swiper-wrapper">
+                
+                {% for tin in tin_moi_nhat %}
+                <div class="swiper-slide h-auto">
+                    <div class="card home-news-card h-100 bg-white shadow-sm overflow-hidden">
+                        <div class="position-relative overflow-hidden">
+                            <a href="{% url 'chi_tiet_tin_tuc' tin.id %}">
+                                {% if tin.anh_bia %}
+                                    <img src="{{ tin.anh_bia.url }}" class="w-100 home-news-img" style="height: 220px; object-fit: cover;" alt="{{ tin.tieu_de }}">
+                                {% else %}
+                                    <img src="https://via.placeholder.com/400x220/e9ecef/6c757d?text=GSMS+News" class="w-100 home-news-img" style="height: 220px; object-fit: cover;">
+                                {% endif %}
+                            </a>
+                            
+                            <div class="position-absolute shadow-sm" style="top: 15px; right: 15px; background: rgba(255,255,255,0.95); padding: 8px 12px; border-radius: 12px; text-align: center; backdrop-filter: blur(4px);">
+                                <span class="d-block fw-bold" style="font-size: 1.3rem; color: #0f4c81; line-height: 1;">{{ tin.ngay_dang|date:"d" }}</span>
+                                <span class="d-block fw-bold" style="font-size: 0.7rem; color: #198754;">TH{{ tin.ngay_dang|date:"m" }}</span>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="card-body p-4 d-flex flex-column">
-                        <h5 class="fw-bold mb-3" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">
-                            <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-dark text-decoration-none" onmouseover="this.style.color='#0d6efd'" onmouseout="this.style.color='#212529'">
-                                {{ tin.tieu_de }}
-                            </a>
-                        </h5>
                         
-                        <p class="text-secondary small mb-4" style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;">
-                            {{ tin.tom_tat|default:"Đang cập nhật tóm tắt..." }}
-                        </p>
-                        
-                        <div class="mt-auto d-flex justify-content-between align-items-center pt-3 border-top">
-                            <span class="small text-muted fw-bold"><i class="far fa-clock me-1"></i> {{ tin.ngay_dang|date:"d/m/Y" }}</span>
-                            <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-primary fw-bold text-decoration-none" style="font-size: 0.9rem;">
-                                Đọc tiếp <i class="fas fa-chevron-right ms-1" style="font-size: 0.8em;"></i>
-                            </a>
+                        <div class="card-body p-4 d-flex flex-column">
+                            <h5 class="fw-bold mb-3" style="display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4;">
+                                <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-dark text-decoration-none" onmouseover="this.style.color='#0d6efd'" onmouseout="this.style.color='#212529'">
+                                    {{ tin.tieu_de }}
+                                </a>
+                            </h5>
+                            
+                            <!-- Đoạn mô tả tự động ép về 3 dòng, dài quá hiện ... -->
+                            <p class="text-secondary small mb-4 text-clamp-3">
+                                {% if tin.tom_tat %}
+                                    {{ tin.tom_tat }}
+                                {% else %}
+                                    {{ tin.noi_dung|striptags }}
+                                {% endif %}
+                            </p>
+                            
+                            <div class="mt-auto d-flex justify-content-between align-items-center pt-3 border-top">
+                                <span class="small text-muted fw-bold"><i class="far fa-clock me-1"></i> {{ tin.ngay_dang|date:"d/m/Y" }}</span>
+                                <a href="{% url 'chi_tiet_tin_tuc' tin.id %}" class="text-primary fw-bold text-decoration-none" style="font-size: 0.9rem;">
+                                    Đọc tiếp <i class="fas fa-chevron-right ms-1" style="font-size: 0.8em;"></i>
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
+                {% empty %}
+                <div class="text-center w-100 py-5 text-muted fst-italic">
+                    <i class="fas fa-box-open fa-3x opacity-25 mb-3"></i>
+                    <p>Hệ thống đang chuẩn bị tin tức mới. Vui lòng quay lại sau!</p>
+                </div>
+                {% endfor %}
+
             </div>
-            {% empty %}
-            <div class="col-12 text-center text-muted py-5">
-                <i class="fas fa-box-open fa-3x opacity-25 mb-3"></i>
-                <p>Hệ thống đang chuẩn bị tin tức mới. Vui lòng quay lại sau!</p>
-            </div>
-            {% endfor %}
+            <!-- Hai nút điều hướng của swiper -->
+            <div class="swiper-button-next"></div>
+            <div class="swiper-button-prev"></div>
+            <!-- Chấm bi phân trang -->
+            <div class="swiper-pagination"></div>
         </div>
     </div>
 </section>
+
+<!-- ========================================== -->
+<!-- MODAL ĐÁNH GIÁ TRẠM XĂNG -->
+<!-- ========================================== -->
+<div class="modal fade" id="modalDanhGiaTram" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg"> 
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-warning text-dark border-0 py-3">
+                <h5 class="modal-title fw-bold"><i class="fas fa-gas-pump me-2"></i> Trạm: <span id="modal_ten_tram">Tên Trạm</span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            
+            <div class="modal-body p-0">
+                <div class="row g-0">
+                    <div class="col-md-6 bg-light p-4 review-scroll" style="max-height: 480px; overflow-y: auto; border-right: 1px solid #dee2e6;">
+                        <h6 class="fw-bold text-dark mb-3 border-bottom pb-2">Cộng đồng đánh giá</h6>
+                        <div id="danh_sach_binh_luan"></div>
+                    </div>
+                    
+                    <div class="col-md-6 p-4 bg-white d-flex flex-column">
+                        
+                        {% if user.is_authenticated %}
+                            <form method="POST" action="{% url 'gui_danh_gia_tram' %}" class="w-100 flex-grow-1 d-flex flex-column">
+                                {% csrf_token %}
+                                <input type="hidden" name="tram_id" id="modal_tram_id">
+                                
+                                <h6 class="fw-bold text-primary text-center mb-3">Trải nghiệm của bạn thế nào?</h6>
+                                
+                                <div class="rating-stars mb-4">
+                                    <input type="radio" id="star5" name="so_sao" value="5" checked /><label for="star5" title="Tuyệt vời"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star4" name="so_sao" value="4" /><label for="star4" title="Tốt"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star3" name="so_sao" value="3" /><label for="star3" title="Bình thường"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star2" name="so_sao" value="2" /><label for="star2" title="Tệ"><i class="fas fa-star"></i></label>
+                                    <input type="radio" id="star1" name="so_sao" value="1" /><label for="star1" title="Rất tệ"><i class="fas fa-star"></i></label>
+                                </div>
+
+                                <div class="mb-3 text-center border-bottom pb-2">
+                                    <span class="small text-muted">Đánh giá với tư cách:</span><br>
+                                    <strong class="text-dark"><i class="fab fa-google text-danger me-1"></i> {{ user.full_name|default:user.username }}</strong>
+                                </div>
+
+                                <div class="mb-3">
+                                    <textarea name="noi_dung" class="form-control bg-light border-0 shadow-sm px-3 py-2" rows="5" placeholder="Chia sẻ cảm nhận của bạn (thái độ nhân viên, chất lượng bơm xăng...)" required></textarea>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-warning text-dark fw-bold w-100 shadow-sm rounded-pill py-2 mt-auto">
+                                    <i class="fas fa-paper-plane me-1"></i> GỬI ĐÁNH GIÁ
+                                </button>
+                            </form>
+
+                        {% else %}
+                            <div class="w-100 flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center">
+                                <div class="mb-4">
+                                    <i class="fas fa-lock fa-4x text-muted opacity-25 mb-3"></i>
+                                    <h5 class="fw-bold text-dark">Bạn cần đăng nhập</h5>
+                                    <p class="text-muted small px-3">Vui lòng đăng nhập bằng tài khoản Google để có thể viết đánh giá cho trạm xăng này nhé!</p>
+                                </div>
+                                
+                                <form action="{% provider_login_url 'google' process='login' %}" method="POST" class="w-100 mt-auto">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="next" value="{% url 'trang_chu' %}">
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 py-2 shadow fw-bold w-100" style="transition: 0.3s;" onmouseover="this.style.transform='translateY(-3px)'" onmouseout="this.style.transform='translateY(0)'">
+                                        <i class="fab fa-google me-2"></i> Đăng nhập bằng Google
+                                    </button>
+                                </form>
+                            </div>
+                        {% endif %}
+                        
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================== -->
+<!-- KHU VỰC 3: JAVASCRIPT XỬ LÝ SWIPER & BẢN ĐỒ -->
+<!-- ========================================== -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
 
 <script>
+    // KÍCH HOẠT SWIPER JS CHO TIN TỨC
+    document.addEventListener("DOMContentLoaded", function() {
+        var swiper = new Swiper(".newsSwiper", {
+            slidesPerView: 1, 
+            spaceBetween: 20, 
+            loop: true,       
+            autoplay: { delay: 3500, disableOnInteraction: false },
+            pagination: { el: ".swiper-pagination", clickable: true, dynamicBullets: true },
+            navigation: { nextEl: ".swiper-button-next", prevEl: ".swiper-button-prev" },
+            breakpoints: {
+                768: { slidesPerView: 2, spaceBetween: 30 },
+                1024: { slidesPerView: 3, spaceBetween: 30 },
+            },
+        });
+    });
+
+    // CODE BẢN ĐỒ GIỮ NGUYÊN CỦA SẾP
     var allStations = {{ tram_json|safe }};
     var map = L.map('gis-map').setView([10.762622, 106.660172], 12);
     var markersLayer = L.layerGroup().addTo(map);
     var routeLayer = null; 
     var userMarker, radiusCircle;
     var userLocation = null; 
+    
+    var stationMarkers = {}; 
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
 
@@ -343,17 +456,21 @@
         return R * c;
     }
 
-    // HÀM MỞ MODAL VÀ ĐỔ DỮ LIỆU ĐÁNH GIÁ (JS)
     function moModalDanhGia(id) {
-        // Lấy dữ liệu trạm từ danh sách đã nạp
         var st = allStations.find(x => String(x.id) === String(id));
         if(!st) return;
 
-        // Cập nhật thẻ ẩn và tiêu đề Modal
-        document.getElementById('modal_tram_id').value = st.id;
         document.getElementById('modal_ten_tram').innerText = st.ten;
         
-        // Vẽ danh sách đánh giá bên cột trái
+        try {
+            var tramInput = document.getElementById('modal_tram_id');
+            if (tramInput) {
+                tramInput.value = st.id;
+            }
+        } catch (e) {
+            console.log("Form ẩn vì khách chưa đăng nhập, tiếp tục mở modal.");
+        }
+        
         var container = document.getElementById('danh_sach_binh_luan');
         if (st.danh_gia_chi_tiet && st.danh_gia_chi_tiet.length > 0) {
             var html = '';
@@ -387,13 +504,14 @@
             `;
         }
 
-        // Bật popup
-        var myModal = new bootstrap.Modal(document.getElementById('modalDanhGiaTram'));
+        var modalElement = document.getElementById('modalDanhGiaTram');
+        var myModal = bootstrap.Modal.getOrCreateInstance(modalElement);
         myModal.show();
     }
 
     function capNhatBanDo() {
         markersLayer.clearLayers(); 
+        stationMarkers = {}; 
         var radiusKm = parseFloat(document.getElementById('radiusRange').value);
         var selectedFuels = [];
         document.querySelectorAll('.fuel-filter:checked').forEach(cb => selectedFuels.push(cb.value));
@@ -422,7 +540,6 @@
                 var ecoBadge = isEcoStation ? `<div class="badge bg-info text-dark w-100 mb-2 shadow-sm"><i class="fas fa-leaf"></i> TRẠM XĂNG SINH THÁI</div>` : '';
                 var titleColor = isEcoStation ? 'text-eco' : 'text-primary';
 
-                // Lấy thông tin điểm đánh giá truyền vào Marker
                 var diemSao = st.diem_danh_gia ? parseFloat(st.diem_danh_gia).toFixed(1) : "5.0";
                 var luotDanhGia = st.luot_danh_gia ? st.luot_danh_gia : 0;
                 var ratingHtml = `
@@ -457,6 +574,8 @@
                 `;
                 marker.bindPopup(popupContent);
                 markersLayer.addLayer(marker);
+                
+                stationMarkers[st.id] = marker;
             }
         });
     }
@@ -550,7 +669,7 @@
 
     var searchTimeout;
     function tuDongTimKiem() {
-        var query = document.getElementById('locationInput').value;
+        var query = document.getElementById('locationInput').value.trim().toLowerCase();
         var list = document.getElementById('suggestionList');
         if (query.length < 2) { list.style.display = 'none'; return; }
         
@@ -559,17 +678,58 @@
             list.innerHTML = '<li class="list-group-item text-center"><i class="fas fa-spinner fa-spin text-primary"></i> Đang tìm...</li>';
             list.style.display = 'block';
 
+            var localMatches = allStations.filter(st => 
+                st.ten.toLowerCase().includes(query) || 
+                st.dia_chi.toLowerCase().includes(query)
+            );
+
             fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=vn&limit=5`)
                 .then(res => res.json())
                 .then(data => {
                     list.innerHTML = ''; 
+                    
+                    if (localMatches.length > 0) {
+                        localMatches.forEach(st => {
+                            var li = document.createElement('li');
+                            li.className = 'list-group-item suggestion-item d-flex justify-content-between align-items-center';
+                            li.style.backgroundColor = '#fff3cd';
+                            li.style.cursor = 'pointer';
+                            li.innerHTML = `
+                                <div class="text-truncate pe-2">
+                                    <i class="fas fa-gas-pump text-success me-2"></i>
+                                    <span class="fw-bold text-dark" style="font-size: 0.9rem;">${st.ten}</span>
+                                </div>
+                                <span class="badge bg-primary rounded-pill shadow-sm" style="font-size: 0.7rem; white-space: nowrap;">Trạm GSMS</span>
+                            `;
+                            
+                            li.onmousedown = () => {
+                                list.style.display = 'none';
+                                document.getElementById('locationInput').value = st.ten;
+                                if (routeLayer) { map.removeControl(routeLayer); routeLayer = null; }
+                                
+                                map.flyTo([st.lat, st.lng], 16);
+                                
+                                setTimeout(() => {
+                                    if (stationMarkers[st.id]) {
+                                        stationMarkers[st.id].openPopup();
+                                    }
+                                }, 800);
+                            };
+                            list.appendChild(li);
+                        });
+                    }
+
                     if (data.length > 0) {
                         data.forEach(item => {
                             var li = document.createElement('li');
-                            li.className = 'list-group-item suggestion-item small';
-                            li.innerHTML = `<i class="fas fa-map-marker-alt text-danger me-2"></i> ${item.display_name}`;
-                            li.onclick = () => {
-                                document.getElementById('suggestionList').style.display = 'none';
+                            li.className = 'list-group-item suggestion-item d-flex align-items-center';
+                            li.style.cursor = 'pointer';
+                            li.innerHTML = `
+                                <i class="fas fa-map-marker-alt text-danger me-2"></i>
+                                <span class="text-truncate text-secondary" style="font-size: 0.85rem;">${item.display_name}</span>
+                            `;
+                            li.onmousedown = () => {
+                                list.style.display = 'none';
                                 var shortName = item.display_name.split(',').slice(0, 2).join(', ');
                                 document.getElementById('locationInput').value = shortName;
                                 if (routeLayer) { map.removeControl(routeLayer); routeLayer = null; }
@@ -577,11 +737,45 @@
                             };
                             list.appendChild(li);
                         });
-                    } else {
-                        list.innerHTML = '<li class="list-group-item text-muted small">Không tìm thấy địa điểm.</li>';
+                    }
+
+                    if (localMatches.length === 0 && data.length === 0) {
+                        list.innerHTML = '<li class="list-group-item text-muted small text-center">Không tìm thấy kết quả nào.</li>';
                     }
                 })
-                .catch(() => list.style.display = 'none');
+                .catch(() => {
+                    if (localMatches.length > 0) {
+                        list.innerHTML = '';
+                        localMatches.forEach(st => {
+                            var li = document.createElement('li');
+                            li.className = 'list-group-item suggestion-item d-flex justify-content-between align-items-center';
+                            li.style.backgroundColor = '#fff3cd';
+                            li.style.cursor = 'pointer';
+                            li.innerHTML = `
+                                <div class="text-truncate pe-2">
+                                    <i class="fas fa-gas-pump text-success me-2"></i>
+                                    <span class="fw-bold text-dark" style="font-size: 0.9rem;">${st.ten}</span>
+                                </div>
+                                <span class="badge bg-primary rounded-pill shadow-sm" style="font-size: 0.7rem; white-space: nowrap;">Trạm GSMS</span>
+                            `;
+                            li.onmousedown = () => {
+                                list.style.display = 'none';
+                                document.getElementById('locationInput').value = st.ten;
+                                if (routeLayer) { map.removeControl(routeLayer); routeLayer = null; }
+                                
+                                map.flyTo([st.lat, st.lng], 16);
+                                setTimeout(() => {
+                                    if (stationMarkers[st.id]) {
+                                        stationMarkers[st.id].openPopup();
+                                    }
+                                }, 800);
+                            };
+                            list.appendChild(li);
+                        });
+                    } else {
+                        list.style.display = 'none';
+                    }
+                });
         }, 500);
     }
 

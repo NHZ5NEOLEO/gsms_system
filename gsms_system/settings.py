@@ -148,7 +148,7 @@ LOGIN_URL = 'login'
 
 # 4. Đường dẫn mặc định sau khi đăng nhập (Fallback)
 # Lưu ý: Logic chính xác đã được xử lý trong views.dang_nhap (Admin -> Dashboard, Staff -> POS)
-LOGIN_REDIRECT_URL = 'admin_dashboard'
+LOGIN_REDIRECT_URL = 'trang_chu'
 
 # ==========================================
 # CẤU HÌNH GỬI EMAIL QUA MAILTRAP

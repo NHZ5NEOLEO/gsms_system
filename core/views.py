@@ -84,7 +84,8 @@ def dang_xuat(request):
 # 2. GIAO DIỆN KHÁCH & TRANG CHỦ (PAGES)
 # ==========================================
 def guest_home(request):
-    tin_moi_nhat = TinTuc.objects.order_by('-ngay_dang')[:3]
+    # Lấy 6 bài mới nhất để đưa lên Swiper (thay vì 3)
+    tin_moi_nhat = TinTuc.objects.order_by('-ngay_dang')[:6]
     san_pham_hot = SanPham.objects.all()[:4]
     
     # BƯỚC 1: Dùng annotate để gộp luôn điểm trung bình và số lượt đánh giá vào Trạm
@@ -93,8 +94,7 @@ def guest_home(request):
         luot_danh_gia=Count('cac_danh_gia', filter=Q(cac_danh_gia__da_duyet=True))
     )
     
-    # BƯỚC 2: ĐÃ SỬA LỖI Ở ĐÂY - Bỏ điều kiện lọc "> 0" 
-    # Giờ hệ thống sẽ ghi nhận TẤT CẢ các bồn chứa, kể cả bồn đang trống (0 lít)
+    # BƯỚC 2: Giờ hệ thống sẽ ghi nhận TẤT CẢ các bồn chứa, kể cả bồn đang trống (0 lít)
     bon_chua_co_xang = BonChua.objects.values_list('tram_id', 'loai_nhien_lieu')
 
     nhien_lieu_theo_tram = defaultdict(list)
@@ -571,18 +571,17 @@ def admin_dashboard(request):
         })
     bang_doanh_thu.sort(key=lambda x: x['doanh_thu'], reverse=True)
 
-    # --- CODE MỚI THÊM: PHÂN TRANG BẢNG DOANH THU ---
+    # --- CODE PHÂN TRANG BẢNG DOANH THU (DÙNG CHO WEB) ---
     paginator_doanh_thu = Paginator(bang_doanh_thu, 5) # 5 dòng/trang
     page_doanh_thu = paginator_doanh_thu.get_page(request.GET.get('page_dt'))
 
-    # --- CODE MỚI THÊM: PHÂN TRANG BỒN CHỨA ---
-    # Phải gom nhóm bồn theo trạm ở backend trước khi chia trang
+    # --- CODE PHÂN TRANG BỒN CHỨA ---
     ds_bon_sorted = ds_bon.order_by('tram__ten_tram')
     grouped_tanks = [{'tram': k, 'bons': list(g)} for k, g in groupby(ds_bon_sorted, key=lambda x: x.tram.ten_tram)]
     paginator_ton_kho = Paginator(grouped_tanks, 5) # 5 trạm/trang
     page_ton_kho = paginator_ton_kho.get_page(request.GET.get('page_tk'))
 
-    # (Code xử lý biểu đồ day_data, month_data... của bạn giữ nguyên ở đây)
+    # Xử lý dữ liệu biểu đồ
     now = timezone.now()
     def lay_tong_nhien_lieu(hds_queryset):
         chi_tiet = ChiTietHoaDon.objects.filter(hoa_don__in=hds_queryset).values('ten_mat_hang').annotate(tong=Sum('so_luong'))
@@ -610,7 +609,7 @@ def admin_dashboard(request):
         'volume': [sum(year_data['volume'][0:3]), sum(year_data['volume'][3:6]), sum(year_data['volume'][6:9]), sum(year_data['volume'][9:12])],
         'fuels': year_data['fuels'] 
     }
-    # (Để code ngắn gọn, mình rút gọn phần data biểu đồ, bạn cứ giữ nguyên code biểu đồ cũ của bạn)
+    
     chart_data = {'day': {}, 'month': {}, 'quarter': quarter_data, 'year': year_data}
     
     context = {
@@ -620,9 +619,13 @@ def admin_dashboard(request):
         'so_giao_dich': so_giao_dich,
         'chart_data_json': json.dumps(chart_data),
         'tu_khoa': tu_khoa,
-        # Đưa 2 biến phân trang ra giao diện
         'page_doanh_thu': page_doanh_thu,
         'page_ton_kho': page_ton_kho,
+        
+        # ========================================================
+        # [QUAN TRỌNG NHẤT]: TRUYỀN DỮ LIỆU FULL 100% TRẠM CHO PDF
+        # ========================================================
+        'doanh_thu_all': bang_doanh_thu,
     }
     return render(request, 'admin/admin_dashboard.html', context)
 
@@ -1044,6 +1047,7 @@ def admin_san_pham(request):
         messages.error(request, "Bạn không có quyền truy cập trang này!")
         return redirect('trang_chu')
 
+    # BỎ Paginator ĐI NHA SẾP, Lấy full danh sách luôn
     ds_sp = SanPham.objects.select_related('danh_muc').all().order_by('-id')
     ds_danh_muc = DanhMuc.objects.all()
 
@@ -1488,7 +1492,6 @@ def gui_danh_gia_tram(request):
         # ====================================================
         # 2. CHỐT CHẶN: KIỂM TRA ĐÃ ĐÁNH GIÁ CHƯA?
         # ====================================================
-        # (Lưu ý: Bạn sẽ cần thêm cột user_id vào bảng DanhGiaTram trong models.py)
         da_danh_gia = DanhGiaTram.objects.filter(tram=tram, user=request.user).exists()
         
         if da_danh_gia:
@@ -1501,11 +1504,18 @@ def gui_danh_gia_tram(request):
         so_sao = request.POST.get('so_sao')
         noi_dung = request.POST.get('noi_dung')
 
+        # ==========================================
+        # ĐÂY LÀ CHỖ VÁ LỖI TÊN GOOGLE
+        # ==========================================
+        # Ưu tiên lấy full_name, nếu trống thì lấy Họ + Tên của Google, nếu vẫn trống thì lấy username
+        ten_google = f"{request.user.last_name} {request.user.first_name}".strip()
+        ten_hien_thi = request.user.full_name or ten_google or request.user.username
+
         try:
             DanhGiaTram.objects.create(
                 tram=tram,
                 user=request.user, # Gắn chặt bài đánh giá này với tài khoản vừa đăng nhập
-                ten_khach_hang=request.user.full_name, 
+                ten_khach_hang=ten_hien_thi,  # <--- CHỖ NÀY ĐÃ SỬA ĐỂ HIỆN ĐÚNG TÊN GOOGLE
                 so_sao=so_sao,
                 noi_dung=noi_dung
             )
@@ -1602,82 +1612,6 @@ def xuat_excel_tram(request):
 
     return response
 
-
-@login_required
-def nhap_excel(request):
-    if request.user.role not in ['admin', 'ke_toan'] and not request.user.is_superuser:
-        messages.error(request, "Bạn không có quyền thực hiện chức năng này!")
-        return redirect('admin_dashboard')
-
-    if request.method == 'POST' and request.FILES.get('file_excel'):
-        excel_file = request.FILES['file_excel']
-        
-        if not excel_file.name.endswith(('.xlsx', '.xls')):
-            messages.error(request, 'Lỗi: Vui lòng tải lên file định dạng Excel (.xlsx hoặc .xls)')
-            return redirect('admin_dashboard')
-
-        try:
-            wb = openpyxl.load_workbook(excel_file, data_only=True)
-            sheet = wb.active
-            so_dong_thanh_cong = 0
-            
-            # Bỏ qua dòng 1 (Tiêu đề)
-            for row in sheet.iter_rows(min_row=2, values_only=True):
-                # Đọc dữ liệu từng cột theo file mẫu
-                username = str(row[0]) if row[0] else None
-                ngay_ban_raw = row[1]
-                loai_nl = str(row[2]) if row[2] else 'A95'
-                so_lit = float(row[3]) if row[3] else 0.0
-                tong_tien = float(row[4]) if row[4] else 0.0
-                pt_thanh_toan = str(row[5]) if row[5] else 'tien_mat'
-
-                if not username or so_lit <= 0:
-                    continue # Bỏ qua dòng thiếu dữ liệu quan trọng
-
-                # 1. Tìm nhân viên để biết doanh thu này của Trạm nào
-                try:
-                    nhan_vien = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    # Thêm dòng cảnh báo này thay vì im lặng bỏ qua
-                    messages.warning(request, f"Bỏ qua dòng {row_idx}: Không tìm thấy nhân viên có tên đăng nhập là '{username}'")
-                    continue
-
-                # 2. Xử lý chuẩn hóa thời gian
-                if is_naive(ngay_ban_raw):
-                    ngay_ban = make_aware(ngay_ban_raw)
-                else:
-                    ngay_ban = ngay_ban_raw
-
-                # 3. Tạo Hóa Đơn gốc
-                ma_hd_moi = f"HD-EXCEL-{uuid.uuid4().hex[:6].upper()}"
-                hd = HoaDon.objects.create(
-                    ma_hd=ma_hd_moi,
-                    nhan_vien=nhan_vien,
-                    tong_tien=tong_tien,
-                    phuong_thuc_thanh_toan=pt_thanh_toan,
-                )
-                
-                # Ép lại thời gian bán hàng theo đúng file Excel 
-                # (Vì create() sẽ tự động lấy giờ hiện tại do trường auto_now_add)
-                HoaDon.objects.filter(id=hd.id).update(thoi_gian=ngay_ban)
-
-                # 4. Tạo Chi tiết Hóa đơn (Ghi nhận số lít bán ra)
-                don_gia = tong_tien / so_lit if so_lit > 0 else 0
-                ChiTietHoaDon.objects.create(
-                    hoa_don=hd,
-                    ten_mat_hang=f"Nhiên liệu {loai_nl}",
-                    so_luong=so_lit,
-                    don_gia=don_gia,
-                    thanh_tien=tong_tien
-                )
-                so_dong_thanh_cong += 1
-                    
-            messages.success(request, f'Thành công! Đã ghi nhận {so_dong_thanh_cong} hóa đơn doanh thu vào hệ thống.')
-            
-        except Exception as e:
-            messages.error(request, f'Lỗi hệ thống khi đọc file Excel: {str(e)}')
-
-    return redirect('admin_dashboard')
 def clean_float_data(value, row_number, column_name):
     """Hàm hỗ trợ xử lý và bắt lỗi ép kiểu số thập phân"""
     if value is None or value == '':
@@ -1691,77 +1625,122 @@ def clean_float_data(value, row_number, column_name):
 
 @login_required
 def nhap_excel(request):
-    if request.user.role not in ['admin', 'ke_toan'] and not request.user.is_superuser:
-        messages.error(request, "Bạn không có quyền thực hiện chức năng này!")
+    """
+    Hàm nhập DOANH THU TỰ ĐỘNG PHÂN BỔ (ĐÃ FIX LỖI HIỂN THỊ DASHBOARD)
+    Cấu trúc file (6 cột): Tên Trạm | Ngày Bán | Loại Xăng | Số Lít | Tổng Tiền | PT Thanh Toán
+    """
+    if request.user.role != 'admin' and not request.user.is_superuser:
+        messages.error(request, "Quyền truy cập bị từ chối!")
         return redirect('admin_dashboard')
 
     if request.method == 'POST' and request.FILES.get('file_excel'):
         excel_file = request.FILES['file_excel']
         
         if not excel_file.name.endswith(('.xlsx', '.xls')):
-            messages.error(request, 'Lỗi: Vui lòng tải lên file định dạng Excel (.xlsx hoặc .xls)')
+            messages.error(request, 'Lỗi: Vui lòng tải lên file định dạng Excel.')
             return redirect('admin_dashboard')
 
         try:
+            import openpyxl
             wb = openpyxl.load_workbook(excel_file, data_only=True)
             sheet = wb.active
             so_dong_thanh_cong = 0
             
-            # Sử dụng enumerate để lấy được số thứ tự dòng (dùng cho việc báo lỗi)
-            for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
-                username = str(row[0]) if row[0] else None
-                ngay_ban_raw = row[1]
-                loai_nl = str(row[2]) if row[2] else 'A95'
-                pt_thanh_toan = str(row[5]) if row[5] else 'tien_mat'
-
-                # Gọi hàm try-except để bắt lỗi ngày tháng thay vì dùng thẳng float()
-                try:
-                    so_lit = clean_float_data(row[3], row_idx, "Số lít")
-                    tong_tien = clean_float_data(row[4], row_idx, "Tổng tiền")
-                except ValueError as ve:
-                    # Nếu lỗi float, báo ra màn hình và dừng toàn bộ quá trình nhập
-                    messages.error(request, f"Lỗi dữ liệu Excel: {str(ve)}")
-                    return redirect('admin_dashboard')
-
-                if not username or so_lit <= 0:
-                    continue
-
-                try:
-                    nhan_vien = User.objects.get(username=username)
-                except User.DoesNotExist:
-                    continue 
-
-                # Xử lý thời gian
-                if isinstance(ngay_ban_raw, datetime.datetime):
-                    ngay_ban = make_aware(ngay_ban_raw) if is_naive(ngay_ban_raw) else ngay_ban_raw
-                else:
-                    ngay_ban = make_aware(datetime.datetime.now()) # Fallback nếu excel không có ngày
-
-                # Tạo Hóa Đơn
-                ma_hd_moi = f"HD-EXCEL-{uuid.uuid4().hex[:6].upper()}"
-                hd = HoaDon.objects.create(
-                    ma_hd=ma_hd_moi,
-                    nhan_vien=nhan_vien,
-                    tong_tien=tong_tien,
-                    phuong_thuc_thanh_toan=pt_thanh_toan,
-                )
-                
-                HoaDon.objects.filter(id=hd.id).update(thoi_gian=ngay_ban)
-
-                don_gia = tong_tien / so_lit if so_lit > 0 else 0
-                ChiTietHoaDon.objects.create(
-                    hoa_don=hd,
-                    ten_mat_hang=f"Nhiên liệu {loai_nl}",
-                    so_luong=so_lit,
-                    don_gia=don_gia,
-                    thanh_tien=tong_tien
-                )
-                so_dong_thanh_cong += 1
+            with transaction.atomic():
+                for row_idx, row in enumerate(sheet.iter_rows(min_row=2, values_only=True), start=2):
                     
-            messages.success(request, f'Thành công! Đã ghi nhận {so_dong_thanh_cong} hóa đơn doanh thu vào hệ thống.')
+                    # 1. ĐỌC DỮ LIỆU
+                    ten_tram_excel = str(row[0]).strip() if row[0] else None
+                    ngay_ban_raw = row[1]
+                    loai_nl = str(row[2]).strip().upper() if row[2] else 'A95'
+                    
+                    if not ten_tram_excel:
+                        continue 
+
+                    try:
+                        so_lit = clean_float_data(row[3], row_idx, "Số Lít")
+                        tong_tien = clean_float_data(row[4], row_idx, "Tổng Tiền")
+                    except ValueError as ve:
+                        messages.error(request, str(ve))
+                        return redirect('admin_dashboard')
+                        
+                    pt_thanh_toan = str(row[5]).strip() if row[5] else 'tien_mat'
+
+                    # 2. TÌM TRẠM XĂNG
+                    try:
+                        tram = TramXang.objects.get(ten_tram__iexact=ten_tram_excel)
+                    except TramXang.DoesNotExist:
+                        raise ValueError(f"Dòng {row_idx}: Không tìm thấy trạm nào có tên '{ten_tram_excel}'")
+
+                    # ========================================================
+                    # [VÁ LỖI]: GÁN DOANH THU VÀO TRẠM ĐỂ HIỆN LÊN DASHBOARD
+                    # ========================================================
+                    # Tìm 1 nhân viên bất kỳ thuộc trạm này để đứng tên
+                    nhan_vien_dai_dien = User.objects.filter(tram_xang=tram).first()
+                    
+                    if not nhan_vien_dai_dien:
+                        # Nếu trạm chưa có nhân viên, tự tạo 1 nhân viên ảo để giữ tiền
+                        username_ao = f"auto_{tram.id}"
+                        nhan_vien_dai_dien, created = User.objects.get_or_create(
+                            username=username_ao,
+                            defaults={
+                                'full_name': "Robot Nhập Excel",
+                                'role': 'nv_ban_xang',
+                                'tram_xang': tram
+                            }
+                        )
+                        if created:
+                            nhan_vien_dai_dien.set_unusable_password()
+                            nhan_vien_dai_dien.save()
+
+                    # Tạo một Ca làm việc ảo cho Trạm để bảng doanh thu quét được
+                    ca_excel, _ = CaLamViec.objects.get_or_create(
+                        tram=tram,
+                        nhan_vien=nhan_vien_dai_dien,
+                        trang_thai='da_chot'
+                    )
+
+                    # 3. XỬ LÝ THỜI GIAN
+                    if isinstance(ngay_ban_raw, datetime.datetime):
+                        ngay_ban = make_aware(ngay_ban_raw) if is_naive(ngay_ban_raw) else ngay_ban_raw
+                    else:
+                        ngay_ban = timezone.now()
+
+                    # 4. TẠO HÓA ĐƠN BÁN HÀNG
+                    ma_hd_moi = f"HD-AD-{uuid.uuid4().hex[:6].upper()}"
+                    hd = HoaDon.objects.create(
+                        ma_hd=ma_hd_moi,
+                        nhan_vien=nhan_vien_dai_dien, # Gán cho nhân viên thuộc trạm
+                        ca_lam_viec=ca_excel,         # Ép vào Ca làm việc của trạm
+                        tong_tien=tong_tien,
+                        phuong_thuc_thanh_toan=pt_thanh_toan,
+                    )
+                    HoaDon.objects.filter(id=hd.id).update(thoi_gian=ngay_ban)
+
+                    # 5. TẠO CHI TIẾT HÓA ĐƠN
+                    don_gia = tong_tien / so_lit if so_lit > 0 else 0
+                    ChiTietHoaDon.objects.create(
+                        hoa_don=hd,
+                        ten_mat_hang=f"Nhiên liệu {loai_nl}",
+                        so_luong=so_lit,
+                        don_gia=don_gia,
+                        thanh_tien=tong_tien
+                    )
+
+                    # 6. TRỪ KHO
+                    try:
+                        bon = BonChua.objects.get(tram=tram, loai_nhien_lieu=loai_nl)
+                        bon.muc_hien_tai -= so_lit
+                        if bon.muc_hien_tai < 0: bon.muc_hien_tai = 0
+                        bon.save()
+                    except BonChua.DoesNotExist:
+                        raise ValueError(f"Dòng {row_idx}: Trạm '{ten_tram_excel}' không có bồn chứa loại {loai_nl}!")
+
+                    so_dong_thanh_cong += 1
+
+            messages.success(request, f'Thành công! Admin đã tự động nạp {so_dong_thanh_cong} dòng. Doanh thu đã được cộng vào bảng chi tiết.')
             
         except Exception as e:
-            messages.error(request, f'Lỗi hệ thống khi đọc file Excel: {str(e)}')
+            messages.error(request, f'Lỗi: {str(e)}')
 
     return redirect('admin_dashboard')
-

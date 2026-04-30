@@ -72,23 +72,25 @@
             <h5 class="mb-0 fw-bold"><i class="fas fa-store-alt text-warning"></i> CHI TIẾT DOANH THU & LỢI NHUẬN TỪNG TRẠM</h5>
             
             <div class="d-flex align-items-center">
-    <form method="GET" class="d-flex me-3">
-        </form>
-    
-    {% if user.role == 'admin' or user.role == 'ke_toan' or user.is_superuser %}
-    <button type="button" class="btn btn-info btn-sm fw-bold shadow-sm me-2 text-white" data-bs-toggle="modal" data-bs-target="#importExcelModal">
-        <i class="fas fa-file-import"></i> NHẬP EXCEL
-    </button>
-    
-    <button onclick="xuatPDF()" class="btn btn-danger btn-sm fw-bold shadow-sm me-2">
-        <i class="fas fa-file-pdf"></i> XUẤT PDF
-    </button>
+                <form method="GET" class="d-flex me-3">
+                    <input type="text" name="q" class="form-control form-control-sm me-2" placeholder="Tìm tên trạm..." value="{{ tu_khoa }}">
+                    <button type="submit" class="btn btn-secondary btn-sm"><i class="fas fa-search"></i></button>
+                </form>
+            
+                {% if user.role == 'admin' or user.role == 'ke_toan' or user.is_superuser %}
+                <button type="button" class="btn btn-info btn-sm fw-bold shadow-sm me-2 text-white" data-bs-toggle="modal" data-bs-target="#importExcelModal">
+                    <i class="fas fa-file-import"></i> NHẬP EXCEL
+                </button>
+                
+                <button onclick="xuatPDF()" class="btn btn-danger btn-sm fw-bold shadow-sm me-2">
+                    <i class="fas fa-file-pdf"></i> XUẤT PDF
+                </button>
 
-    <a href="{% url 'xuat_excel_doanh_thu' %}?q={{ tu_khoa }}" class="btn btn-success btn-sm fw-bold shadow-sm">
-        <i class="fas fa-file-excel"></i> XUẤT EXCEL
-    </a>
-    {% endif %}
-</div>
+                <a href="{% url 'xuat_excel_doanh_thu' %}?q={{ tu_khoa }}" class="btn btn-success btn-sm fw-bold shadow-sm">
+                    <i class="fas fa-file-excel"></i> XUẤT EXCEL
+                </a>
+                {% endif %}
+            </div>
         </div>
         
         <div class="card-body p-0">
@@ -143,8 +145,6 @@
                     <li class="page-item"><a class="page-link" href="?page_dt={{ page_doanh_thu.next_page_number }}{% if tu_khoa %}&q={{ tu_khoa }}{% endif %}">Sau</a></li>
                     {% endif %}
                 </ul>
-            </div>
-                </table>
             </div>
         </div>
     </div>
@@ -284,29 +284,96 @@
         </div>
     </div>
 </div>
+
 <div class="modal fade" id="importExcelModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-0 shadow-lg">
             <form method="POST" action="{% url 'nhap_excel' %}" enctype="multipart/form-data">
                 {% csrf_token %}
-                <div class="modal-header bg-info text-white">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-upload me-2"></i>Nhập Dữ Liệu Từ Excel</h5>
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-file-invoice-dollar me-2"></i>Nhập Doanh Thu Từ Excel</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body p-4">
-                    <div class="alert alert-warning small">
-                        <strong>Lưu ý:</strong> File upload phải là định dạng <b>.xlsx</b>. Cấu trúc cột phải khớp với quy định của hệ thống (Ví dụ: Cột A là Tên, Cột B là Địa chỉ...).
+                    <div class="alert alert-info small shadow-sm">
+                        <h6 class="fw-bold"><i class="fas fa-info-circle"></i> QUY ĐỊNH FILE EXCEL DÀNH CHO ADMIN:</h6>
+                        Hệ thống sẽ tự động trừ kho tại Trạm được chỉ định. Toàn bộ hóa đơn sẽ được gắn tên người nạp là <b>{{ user.full_name|default:user.username }}</b>.<br><br>
+                        
+                        <b>Cấu trúc file gồm 6 cột (Bắt đầu từ cột A, bỏ qua dòng Tiêu đề):</b><br>
+                        1. <b>Tên Trạm</b> (Gõ chính xác tên trạm trên hệ thống)<br>
+                        2. <b>Ngày Bán</b> (YYYY-MM-DD hoặc DD/MM/YYYY)<br>
+                        3. <b>Loại Xăng</b> (A95, E5, E10, DO)<br>
+                        4. <b>Số Lít</b><br>
+                        5. <b>Tổng Tiền</b><br>
+                        6. <b>Phương Thức TT</b> (tien_mat, chuyen_khoan, the)
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-bold">Chọn file Excel tải lên <span class="text-danger">*</span></label>
-                        <input class="form-control" type="file" name="file_excel" accept=".xlsx, .xls" required>
+
+                    <div class="mb-3 mt-4">
+                        <label class="form-label fw-bold text-dark">Chọn File Excel (.xlsx) <span class="text-danger">*</span></label>
+                        <input class="form-control border-success" type="file" name="file_excel" accept=".xlsx, .xls" required>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-info text-white fw-bold"><i class="fas fa-check me-2"></i>Tiến hành Nhập</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary fw-bold" data-bs-dismiss="modal">Hủy bỏ</button>
+                    <button type="submit" class="btn btn-success text-white fw-bold"><i class="fas fa-check-circle me-2"></i>Xác nhận & Nạp dữ liệu</button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<div id="report-pdf-template" style="display: none;">
+    <div style="padding: 20px; font-family: 'DejaVu Sans', Arial, sans-serif; color: #333;">
+        
+        <div style="display: flex; justify-content: space-between; border-bottom: 2px solid #444; padding-bottom: 10px; margin-bottom: 20px;">
+            <div style="width: 60%;">
+                <h3 style="margin: 0; color: #0f4c81; text-transform: uppercase;">HỆ THỐNG QUẢN LÝ TRẠM XĂNG GSMS</h3>
+                <p style="margin: 5px 0; font-size: 12px;">Địa chỉ: Khu Công Nghệ Phần Mềm ĐHQG-HCM, Dĩ An, Bình Dương</p>
+                <p style="margin: 0; font-size: 12px;">Hotline: 1900 xxxx - Website: gsms-system.vn</p>
+            </div>
+            <div style="width: 35%; text-align: right;">
+                <p style="margin: 0; font-size: 13px;"><b>Mẫu số: BC-01/DT</b></p>
+                <p style="margin: 5px 0; font-size: 12px;">Ngày xuất: {% now "d/m/Y H:i" %}</p>
+            </div>
+        </div>
+
+        <h2 style="text-align: center; color: #d32f2f; margin-bottom: 30px;">BÁO CÁO TỔNG HỢP DOANH THU VÀ SẢN LƯỢNG</h2>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 12px;">STT</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 12px;">Tên Trạm Xăng</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; text-align: right; font-size: 12px;">Doanh Thu (VNĐ)</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; text-align: right; font-size: 12px;">Lợi Nhuận (VNĐ)</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; text-align: right; font-size: 12px;">Sản Lượng (Lít)</th>
+                    <th style="border: 1px solid #ddd; padding: 10px; text-align: center; font-size: 12px;">Giao Dịch</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in doanh_thu_all %}
+                <tr style="page-break-inside: avoid;">
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ forloop.counter }}</td>
+                    <td style="border: 1px solid #ddd; padding: 8px;">
+                        <b>{{ row.tram.ten_tram }}</b><br>
+                        <small style="color: #666;">{{ row.tram.dia_chi }}</small>
+                    </td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; color: #2e7d32;">{{ row.doanh_thu|floatformat:0|intcomma }} đ</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right; color: #c62828;">+{{ row.loi_nhuan|floatformat:0|intcomma }} đ</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">{{ row.san_luong|floatformat:1|intcomma }} L</td>
+                    <td style="border: 1px solid #ddd; padding: 8px; text-align: center;">{{ row.so_don }} đơn</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <div style="margin-top: 50px; display: flex; justify-content: flex-end;">
+            <div style="width: 300px; text-align: center;">
+                <p style="margin: 0; font-size: 13px;"><i>Ngày ..... tháng ..... năm 2026</i></p>
+                <p style="margin: 5px 0; font-weight: bold;">NGƯỜI LẬP BÁO CÁO</p>
+                <div style="height: 80px;"></div>
+                <p style="margin: 0; font-weight: bold;">{{ user.full_name|default:user.username }}</p>
+            </div>
         </div>
     </div>
 </div>
@@ -314,7 +381,12 @@
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 <script>
+    // ==========================================
+    // XỬ LÝ BIỂU ĐỒ
+    // ==========================================
     document.addEventListener("DOMContentLoaded", function() {
         if (typeof Chart === 'undefined') {
             console.error("Lỗi: Không tải được thư viện Chart.js");
@@ -389,25 +461,45 @@
 
         window.updateCharts('quarter');
     });
-</script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-<script>
+    // ==========================================
+    // XUẤT PDF CÓ PHÂN TRANG VÀ ĐÁNH SỐ TRANG
+    // ==========================================
     function xuatPDF() {
-        // Lấy đúng cái phần giao diện bảng để in ra PDF
-        // (Bạn nhớ thêm id="bang-doanh-thu-container" vào thẻ div bọc ngoài cái table nhé)
-        var element = document.querySelector('.table-responsive'); 
-        
+        // 1. Hiện template ẩn lên
+        var element = document.getElementById('report-pdf-template');
+        element.style.display = 'block';
+
+        // 2. Cấu hình in (Lề dưới tăng lên 0.8 inch để chừa chỗ đánh số trang)
         var opt = {
-            margin:       0.5,
-            filename:     'Bao_Cao_Doanh_Thu.pdf',
+            margin:       [0.5, 0.5, 0.8, 0.5], 
+            filename:     'Bao_Cao_GSMS_' + new Date().getTime() + '.pdf',
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true },
-            jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' }
+            html2canvas:  { scale: 2, useCORS: true, letterRendering: true },
+            jsPDF:        { unit: 'in', format: 'a4', orientation: 'landscape' },
+            pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
         };
 
-        // Bắt đầu tạo và tải PDF
-        html2pdf().set(opt).from(element).save();
+        // 3. Tiến hành tạo PDF và đóng dấu số trang
+        html2pdf().set(opt).from(element).toPdf().get('pdf').then(function (pdf) {
+            var totalPages = pdf.internal.getNumberOfPages();
+            
+            // Lặp qua từng trang để in số "Trang x/y"
+            for (var i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+                pdf.setFontSize(10);
+                pdf.setTextColor(100);
+                
+                var pageWidth = pdf.internal.pageSize.getWidth();
+                var pageHeight = pdf.internal.pageSize.getHeight();
+                
+                // Đóng dấu ở góc dưới cùng bên phải
+                pdf.text('Trang ' + i + ' / ' + totalPages, pageWidth - 1.2, pageHeight - 0.3);
+            }
+        }).save().then(function() {
+            // 4. In xong thì ẩn template đi
+            element.style.display = 'none';
+        });
     }
 </script>
 {% endblock %}

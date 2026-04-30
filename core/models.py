@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.conf import settings
 
 # ==========================================
 # 1. NGƯỜI DÙNG (Phân quyền 4 cấp bậc & Cách ly Trạm)
@@ -12,8 +13,11 @@ class User(AbstractUser):
         ('ke_toan', 'Kế toán nội bộ'),
         ('truong_tram', 'Cửa hàng trưởng / Trưởng trạm'),
         ('nv_ban_xang', 'Nhân viên bơm xăng'),
+        ('khach_hang', 'Khách hàng Google'), # <--- ĐÃ THÊM QUYỀN KHÁCH HÀNG
     )
-    role = models.CharField(max_length=20, choices=ROLES, default='nv_ban_xang', verbose_name="Chức vụ")
+    # ĐÃ ĐỔI DEFAULT THÀNH khach_hang
+    role = models.CharField(max_length=20, choices=ROLES, default='khach_hang', verbose_name="Chức vụ")
+    
     full_name = models.CharField(max_length=100, verbose_name="Họ và tên")
     phone = models.CharField(max_length=15, verbose_name="Số điện thoại")
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
@@ -100,9 +104,6 @@ class BonChua(models.Model):
         verbose_name_plural = "2. Quản lý Bồn Chứa"
 
 
-# ==========================================
-# 4. HÓA ĐƠN & CHI TIẾT (Bán hàng)
-# ==========================================
 # ==========================================
 # 4. HÓA ĐƠN & CHI TIẾT (Bán hàng)
 # ==========================================
@@ -274,7 +275,9 @@ class TinTuc(models.Model):
         verbose_name_plural = "10. Quản lý Tin Tức"
 
 class DanhGiaTram(models.Model):
-    tram = models.ForeignKey(TramXang, on_delete=models.CASCADE, related_name='cac_danh_gia') # Liên kết tới Trạm
+    tram = models.ForeignKey(TramXang, on_delete=models.CASCADE, related_name='cac_danh_gia') 
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    
     ten_khach_hang = models.CharField(max_length=100)
     so_sao = models.IntegerField(default=5)
     noi_dung = models.TextField()
@@ -352,7 +355,7 @@ def tao_bon_mac_dinh_cho_tram_moi(sender, instance, created, **kwargs):
 class CaLamViec(models.Model):
     TRANG_THAI_CA = (
         ('dang_mo', 'Đang làm việc'),
-        ('cho_duyet', 'Đã chốt - Chờ nộp tiền'), # <--- THÊM TRẠNG THÁI NÀY
+        ('cho_duyet', 'Đã chốt - Chờ nộp tiền'),
         ('da_chot', 'Đã nộp tiền & Hoàn tất'),
     )
     nhan_vien = models.ForeignKey('User', on_delete=models.CASCADE)
@@ -363,7 +366,6 @@ class CaLamViec(models.Model):
     tien_dau_ca = models.DecimalField(max_digits=12, decimal_places=0, default=0)
     so_loc_dau_ca = models.FloatField(default=0)
     
-    # --- THÊM 2 TRƯỜNG NÀY ĐỂ LƯU SỐ LIỆU KHI NHÂN VIÊN BẤM CHỐT CA ---
     tong_tien_thu = models.DecimalField(max_digits=12, decimal_places=0, default=0, verbose_name="Tổng doanh thu ca")
     tong_so_lit_ban = models.FloatField(default=0, verbose_name="Tổng số lít đã bán")
     
