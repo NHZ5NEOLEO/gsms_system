@@ -406,36 +406,42 @@ def staff_chot_ca(request):
     # 1. Tìm ca làm việc đang mở của nhân viên này
     ca_hien_tai = CaLamViec.objects.filter(nhan_vien=request.user, trang_thai='dang_mo').first()
 
+    if not ca_hien_tai:
+        messages.error(request, "Tài khoản của bạn hiện không có ca làm việc nào đang mở!")
+        return redirect('pos_xang')
+
     # Khởi tạo các biến đếm (mặc định = 0)
     tong_tien = 0
     tong_lit = 0
     so_gd = 0
 
-    if ca_hien_tai:
-        # 2. TỐI ƯU QUERY: Lấy trực tiếp Hóa Đơn được đánh dấu thuộc về Ca này
-        # (Sử dụng related_name 'cac_hoa_don' từ ForeignKey sếp vừa thêm)
-        ds_hoa_don = ca_hien_tai.cac_hoa_don.all()
-        so_gd = ds_hoa_don.count()
+    # 2. TỐI ƯU & AN TOÀN NHẤT: Lấy toàn bộ hóa đơn từ lúc MỞ CA đến hiện tại
+    # (Loại bỏ rủi ro do quên gán ForeignKey lúc tạo hóa đơn)
+    ds_hoa_don = HoaDon.objects.filter(
+        nhan_vien=request.user,
+        thoi_gian__gte=ca_hien_tai.thoi_gian_bat_dau
+    )
+    so_gd = ds_hoa_don.count()
 
-        if so_gd > 0:
-            tong_tien = ds_hoa_don.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0
-            tong_lit = ChiTietHoaDon.objects.filter(hoa_don__in=ds_hoa_don).aggregate(Sum('so_luong'))['so_luong__sum'] or 0
+    if so_gd > 0:
+        tong_tien = ds_hoa_don.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0
+        tong_lit = ChiTietHoaDon.objects.filter(hoa_don__in=ds_hoa_don).aggregate(Sum('so_luong'))['so_luong__sum'] or 0
 
-        # 3. XỬ LÝ KHI BẤM NÚT "ĐỒNG Ý CHỐT CA" TỪ MODAL (POST)
-        if request.method == 'POST':
-            # [QUAN TRỌNG] Ghi nhận số liệu vào Database cho Trưởng trạm duyệt
-            ca_hien_tai.tong_tien_thu = tong_tien
-            ca_hien_tai.tong_so_lit_ban = tong_lit
-            
-            # Cập nhật thời gian và trạng thái
-            ca_hien_tai.thoi_gian_ket_thuc = timezone.now() # Đã mở comment dòng này
-            ca_hien_tai.trang_thai = 'cho_duyet'
-            ca_hien_tai.save()
-            
-            # Đăng xuất và đá về trang đăng nhập
-            logout(request)
-            messages.success(request, "Đã chốt ca thành công! Hãy nộp tiền mặt cho quản lý. Hệ thống tự động đăng xuất.")
-            return redirect('login')
+    # 3. XỬ LÝ KHI BẤM NÚT "ĐỒNG Ý CHỐT CA" TỪ MODAL (POST)
+    if request.method == 'POST':
+        # [QUAN TRỌNG] Ghi nhận số liệu vào Database cho Trưởng trạm duyệt
+        ca_hien_tai.tong_tien_thu = tong_tien
+        ca_hien_tai.tong_so_lit_ban = tong_lit
+        
+        # Cập nhật thời gian và trạng thái
+        ca_hien_tai.thoi_gian_ket_thuc = timezone.now() 
+        ca_hien_tai.trang_thai = 'cho_duyet'
+        ca_hien_tai.save()
+        
+        # Đăng xuất và đá về trang đăng nhập
+        logout(request)
+        messages.success(request, f"Đã chốt ca thành công ({so_gd} giao dịch)! Hãy nộp tiền mặt cho quản lý. Hệ thống tự động đăng xuất.")
+        return redirect('login')
 
     # 4. NẾU LÀ GET REQUEST -> Hiển thị giao diện phiếu in chốt ca (Modal/Page)
     context = {
@@ -443,7 +449,7 @@ def staff_chot_ca(request):
         'so_gd': so_gd, 
         'tong_lit': tong_lit, 
         'ngay_chot': timezone.now(),
-        'ca': ca_hien_tai # Đẩy thêm object ca ra ngoài để lỡ HTML cần dùng ID ca
+        'ca': ca_hien_tai
     }
     
     return render(request, 'staff/staff_chot_ca.html', context)
@@ -489,45 +495,70 @@ def tao_yeu_cau_nhap_hang(request):
 
     # <-- ĐÃ SỬA: Điều hướng mặc định sau khi xong việc cũng về Báo cáo trạm
     return redirect('bao_cao_tram')
+
 @login_required
 def bao_cao_tram(request):
-    # 1. Kiểm tra quyền
-    if request.user.role != 'truong_tram': 
-        messages.error(request, "Bạn không có quyền xem báo cáo trạm!")
+    user = request.user
+    
+    # Chỉ trưởng trạm mới được vào trang này
+    if user.role != 'truong_tram':
+        messages.error(request, "Bạn không có quyền truy cập trang này!")
         return redirect('pos_xang')
         
-    tram = request.user.tram_xang
+    tram_cua_toi = user.tram_xang
     
-    # 2. Chốt chặn bảo mật lỡ Trưởng trạm chưa có Trạm
-    if not tram:
+    if not tram_cua_toi:
         messages.warning(request, "Tài khoản của bạn chưa được phân bổ vào Trạm nào!")
         return redirect('trang_chu')
 
     today = timezone.now().date()
-    
-    # 3. Lấy QuerySet gốc 1 lần duy nhất để tối ưu hiệu năng Database
-    hds_hom_nay = HoaDon.objects.filter(nhan_vien__tram_xang=tram, thoi_gian__date=today)
-    
-    # 4. Tái sử dụng hds_hom_nay để tính KPI nhân viên thay vì query lại từ đầu
-    doanh_thu_nhan_vien = hds_hom_nay.values(
+
+    # ==========================================
+    # 1. TÌM TẤT CẢ CÁC CA LÀM VIỆC CỦA TRẠM TRONG NGÀY HÔM NAY
+    # Lấy cả ca đang mở và ca đã đóng
+    # ==========================================
+    cac_ca_hom_nay = CaLamViec.objects.filter(
+        tram=tram_cua_toi,
+        thoi_gian_bat_dau__date=today
+    )
+
+    # ==========================================
+    # 2. TÍNH DOANH THU TỪNG NHÂN VIÊN CA
+    # Tính dựa trên các ca làm việc thay vì từng tờ hóa đơn rời rạc
+    # ==========================================
+    doanh_thu_nhan_vien = cac_ca_hom_nay.values(
         'nhan_vien__username', 
         'nhan_vien__full_name'
     ).annotate(
-        tong_ban=Sum('tong_tien'), 
-        so_don=Count('id')
+        # Lấy trực tiếp từ trường tổng kết của model CaLamViec (nếu có)
+        # Hoặc tính tổng từ các hóa đơn liên kết với ca
+        tong_ban=Sum('cac_hoa_don__tong_tien'),
+        so_don=Count('cac_hoa_don__id')
     ).order_by('-tong_ban')
+
+    # ==========================================
+    # 3. TÍNH TỔNG DOANH THU & SẢN LƯỢNG TOÀN TRẠM
+    # ==========================================
+    doanh_thu_hom_nay = doanh_thu_nhan_vien.aggregate(Sum('tong_ban'))['tong_ban__sum'] or 0
     
+    # Gom tất cả hóa đơn của các ca hôm nay để tính lít xuất
+    ds_hoa_don_hom_nay = HoaDon.objects.filter(ca_lam_viec__in=cac_ca_hom_nay)
+    san_luong_hom_nay = ChiTietHoaDon.objects.filter(hoa_don__in=ds_hoa_don_hom_nay).aggregate(Sum('so_luong'))['so_luong__sum'] or 0
+
+    # ==========================================
+    # 4. KIỂM KÊ TỒN KHO BỒN CHỨA
+    # ==========================================
+    ds_bon = BonChua.objects.filter(tram=tram_cua_toi)
+
     context = {
-        'tram': tram, 
+        'tram': tram_cua_toi,
         'ngay_bao_cao': timezone.now(),
-        'doanh_thu_hom_nay': hds_hom_nay.aggregate(Sum('tong_tien'))['tong_tien__sum'] or 0,
-        'so_gd_hom_nay': hds_hom_nay.count(),
-        'san_luong_hom_nay': ChiTietHoaDon.objects.filter(hoa_don__in=hds_hom_nay).aggregate(Sum('so_luong'))['so_luong__sum'] or 0,
-        'ds_bon': BonChua.objects.filter(tram=tram),
+        'doanh_thu_hom_nay': doanh_thu_hom_nay,
+        'san_luong_hom_nay': san_luong_hom_nay,
         'doanh_thu_nhan_vien': doanh_thu_nhan_vien,
+        'ds_bon': ds_bon,
     }
     
-    # Sếp lưu template trong thư mục staff/ nên tui giữ nguyên đường dẫn này
     return render(request, 'staff/bao_cao_tram.html', context)
 
 # ==========================================

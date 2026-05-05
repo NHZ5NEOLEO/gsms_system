@@ -17,6 +17,9 @@
                 <div class="text-muted mb-2" style="font-size: 0.8rem;">{{ user.tram_xang.dia_chi|default:"" }}</div>
                 
                 <h6 class="fw-bold mt-2 mb-0">BẢNG KÊ CHỐT CA</h6>
+                
+                <div class="text-primary fw-bold mt-1" style="font-size: 0.8rem;">Mở ca lúc: {{ ca.thoi_gian_bat_dau|date:"d/m/Y H:i" }}</div>
+                
                 <div class="text-muted" style="font-size: 0.8rem;">Ngày in: {{ ngay_chot|date:"d/m/Y H:i" }}</div>
             </div>
 
@@ -80,9 +83,13 @@
                 <button type="button" class="btn btn-outline-dark fw-bold py-2 shadow-sm bg-white" onclick="window.print()">
                     <i class="fas fa-print me-2"></i> IN BẢNG KÊ
                 </button>
-                <a href="{% url 'logout' %}" class="btn btn-danger fw-bold py-2 shadow">
-                    <i class="fas fa-lock me-2"></i> KHÓA MÁY & ĐĂNG XUẤT
-                </a>
+                
+                <form method="POST" action="{% url 'staff_chot_ca' %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger fw-bold w-100 py-2 shadow">
+                        <i class="fas fa-lock me-2"></i> XÁC NHẬN CHỐT CA & ĐĂNG XUẤT
+                    </button>
+                </form>
                 
                 <div class="text-center mt-1">
                     <a href="{% if user.role == 'nv_ban_hang' %}{% url 'pos_mart' %}{% else %}{% url 'pos_xang' %}{% endif %}" class="btn btn-link text-muted text-decoration-none" style="font-size: 0.85rem;">
