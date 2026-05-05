@@ -37,7 +37,7 @@
                             <a href="javascript:void(0)" 
                                class="fw-bold text-primary fs-6 mb-1 text-decoration-none d-block hover-primary" 
                                title="Click để xem chi tiết bồn này"
-                               onclick="xemChiTietBon('{{ bon.ten_bon|escapejs }}', '{{ bon.tram.ten_tram|escapejs }}', '{{ bon.get_loai_nhien_lieu_display }}', '{{ bon.muc_hien_tai|floatformat:0 }}', '{{ bon.suc_chua_toi_da|floatformat:0 }}', '{{ bon.phan_tram }}')">
+                               onclick="xemChiTietBon('{{ bon.ten_bon|escapejs }}', '{{ bon.tram.ten_tram|escapejs }}', '{{ bon.get_loai_nhien_lieu_display }}', '{{ bon.muc_hien_tai|floatformat:0 }}', '{{ bon.suc_chua_toi_da|floatformat:0 }}', '{{ bon.phan_tram|stringformat:".0f" }}')">
                                 {{ bon.ten_bon }} <i class="fas fa-search-plus text-muted small ms-1"></i>
                             </a>
                             <div class="text-muted small">
@@ -57,13 +57,13 @@
                                     <span class="fw-bold text-dark fs-6">{{ bon.muc_hien_tai|floatformat:0|intcomma }}</span>
                                     <span class="text-muted small"> / {{ bon.suc_chua_toi_da|floatformat:0|intcomma }} Lít</span>
                                 </div>
-                                <span class="badge bg-light text-dark border fw-bold">{{ bon.phan_tram }}%</span>
+                                <span class="badge bg-light text-dark border fw-bold">{{ bon.phan_tram|stringformat:".0f" }}%</span>
                             </div>
                             <div class="progress shadow-sm" style="height: 6px; border-radius: 4px;">
                                 <div class="progress-bar {% if bon.phan_tram < 20 %}bg-danger progress-bar-striped progress-bar-animated{% elif bon.phan_tram > 80 %}bg-success{% else %}bg-primary{% endif %}" 
                                      role="progressbar" 
-                                     style="width: {{ bon.phan_tram }}%;" 
-                                     aria-valuenow="{{ bon.phan_tram }}" aria-valuemin="0" aria-valuemax="100">
+                                     style="width: {{ bon.phan_tram|stringformat:".0f" }}%;" 
+                                     aria-valuenow="{{ bon.phan_tram|stringformat:".0f" }}" aria-valuemin="0" aria-valuemax="100">
                                 </div>
                             </div>
                         </td>
@@ -319,6 +319,8 @@
         
         document.getElementById('detail_suc_chua').innerText = formatNum(sucChua) + ' Lít';
         document.getElementById('detail_muc_hien_tai').innerText = formatNum(mucHienTai) + ' Lít';
+        
+        // phanTram đã là số nguyên được fix từ template nên gắn vào luôn
         document.getElementById('detail_phan_tram_text').innerText = phanTram + '%';
         
         // Xử lý thanh Progress Bar và Màu sắc
@@ -328,10 +330,10 @@
         // Xóa các màu cũ
         progressBar.classList.remove('bg-danger', 'bg-warning', 'bg-success', 'bg-primary');
         
-        // Thêm màu mới dựa trên tỷ lệ %
-        if (phanTram < 20) {
+        // Thêm màu mới dựa trên tỷ lệ % (Dùng phanTram đã ép kiểu số)
+        if (Number(phanTram) < 20) {
             progressBar.classList.add('bg-danger');
-        } else if (phanTram > 80) {
+        } else if (Number(phanTram) > 80) {
             progressBar.classList.add('bg-success');
         } else {
             progressBar.classList.add('bg-primary');
